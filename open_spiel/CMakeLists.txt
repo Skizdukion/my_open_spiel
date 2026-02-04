@@ -287,6 +287,7 @@ add_subdirectory (algorithms)
 add_subdirectory (bots)
 add_subdirectory (evaluation)
 add_subdirectory (examples)
+add_subdirectory (custom)
 add_subdirectory (games)
 add_subdirectory (game_transforms)
 
