@@ -1,33 +1,38 @@
 ./install.sh
+
 # 1. Debug Build (For Development & VS Code)
+
 mkdir -p build_debug
 cd build_debug
 export BUILD_TYPE=Debug
-export OPEN_SPIEL_BUILD_WITH_LIBTORCH=ON 
-export OPEN_SPIEL_BUILD_WITH_LIBNOP=ON 
+export OPEN_SPIEL_BUILD_WITH_LIBTORCH=ON
+export OPEN_SPIEL_BUILD_WITH_LIBNOP=ON
+
 # Note: Point to ../open_spiel because that's where CMakeLists.txt is
+
 BUILD_SHARED_LIB=ON CXX=clang++ cmake -DPython3_EXECUTABLE=$(which python3) -DBUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ../open_spiel
 make -j$(nproc) open_spiel
 
 # 2. Release Build (For Performance/Benchmarking)
+
 cd ..
 mkdir -p build_release
 cd build_release
 export BUILD_TYPE=Release
-export OPEN_SPIEL_BUILD_WITH_LIBTORCH=ON 
-export OPEN_SPIEL_BUILD_WITH_LIBNOP=ON 
+export OPEN_SPIEL_BUILD_WITH_LIBTORCH=ON
+export OPEN_SPIEL_BUILD_WITH_LIBNOP=ON
 BUILD_SHARED_LIB=ON CXX=clang++ cmake -DPython3_EXECUTABLE=$(which python3) -DBUILD_TYPE=Release ../open_spiel
 make -j$(nproc) open_spiel
 
-
 # 3. Link build compile_commands to apply clangd language server
+
 ln -sf build_debug/compile_commands.json compile_commands.json
 
 SOME HELPER DEBUG:
-    ? params
-    p *params
-    p params->params
-    p params->toString()
+? params
+p \*params
+p params->params
+p params->toString()
 
     p auto $s = game->NewInitialState().release()
     p $s
@@ -36,3 +41,12 @@ SOME HELPER DEBUG:
     frame variable config
 
     x/s *(char**)&config.game # Go to this memory address and print bytes as a null-terminated C string.
+
+Helpful command
+./alpha_zero_example --game=tic_tac_toe --path=/home/lpk/my_open_spiel/run_output/alpha_zero_tic_tac_toe --devices=cuda:0 --max_steps=10
+
+./alpha_zero_interactive /home/lpk/my_open_spiel/run_output/alpha_zero_tic_tac_toe/config.json /home/lpk/my_open_spiel/run_output/alpha_zero_tic_tac_toe/checkpoint-100
+
+./alpha_zero_vs_random /home/lpk/my_open_spiel/run_output/alpha_zero_tic_tac_toe/config.json /home/lpk/my_open_spiel/run_output/alpha_zero_tic_tac_toe/checkpoint-100
+
+./alpha_zero_self_play /home/lpk/my_open_spiel/run_output/alpha_zero_tic_tac_toe/config.json /home/lpk/my_open_spiel/run_output/alpha_zero_tic_tac_toe/checkpoint-100 /home/lpk/my_open_spiel/run_output/alpha_zero_tic_tac_toe/checkpoint-200 --num_games=10000
