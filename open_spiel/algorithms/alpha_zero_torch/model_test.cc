@@ -113,12 +113,12 @@ void TestCUDAAVailability() {
   }
 }
 
-}  // namespace
-}  // namespace torch_az
-}  // namespace algorithms
-}  // namespace open_spiel
+} // namespace
+} // namespace torch_az
+} // namespace algorithms
+} // namespace open_spiel
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
   open_spiel::algorithms::torch_az::TestModelCreation();
   open_spiel::algorithms::torch_az::TestModelInference();
   open_spiel::algorithms::torch_az::TestCUDAAVailability();

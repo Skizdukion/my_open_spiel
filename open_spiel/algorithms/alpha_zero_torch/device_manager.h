@@ -29,38 +29,36 @@ namespace torch_az {
 // work you're going to give it, which is assumed done once the loan is
 // returned.
 class DeviceManager {
- public:
+public:
   DeviceManager() {
     learning_ = false;
     multiple_devices_ = false;
   }
 
-  void AddDevice(VPNetModel model) {  // Not thread safe.
+  void AddDevice(VPNetModel model) { // Not thread safe.
     devices.emplace_back(Device{std::move(model)});
     multiple_devices_ = devices.size() > 1;
   }
 
   // Acts as a pointer to the model, but lets the manager know when you're done.
   class DeviceLoan {
-   public:
+  public:
     // DeviceLoan is not public constructible and is move only.
-    DeviceLoan(DeviceLoan&& other) = default;
-    DeviceLoan& operator=(DeviceLoan&& other) = default;
-    DeviceLoan(const DeviceLoan&) = delete;
-    DeviceLoan& operator=(const DeviceLoan&) = delete;
+    DeviceLoan(DeviceLoan &&other) = default;
+    DeviceLoan &operator=(DeviceLoan &&other) = default;
+    DeviceLoan(const DeviceLoan &) = delete;
+    DeviceLoan &operator=(const DeviceLoan &) = delete;
 
     ~DeviceLoan() { manager_->Return(device_id_, requests_); }
-    VPNetModel* operator->() { return model_; }
+    VPNetModel *operator->() { return model_; }
 
-   private:
-    DeviceLoan(DeviceManager* manager, VPNetModel* model, int device_id,
+  private:
+    DeviceLoan(DeviceManager *manager, VPNetModel *model, int device_id,
                int requests)
-        : manager_(manager),
-          model_(model),
-          device_id_(device_id),
+        : manager_(manager), model_(model), device_id_(device_id),
           requests_(requests) {}
-    DeviceManager* manager_;
-    VPNetModel* model_;
+    DeviceManager *manager_;
+    VPNetModel *model_;
     int device_id_;
     int requests_;
     friend DeviceManager;
@@ -92,7 +90,7 @@ class DeviceManager {
 
   int Count() const { return devices.size(); }
 
- private:
+private:
   void Return(int device_id, int requests) {
     absl::MutexLock lock(m_);
     devices[device_id].requests -= requests;
@@ -109,8 +107,8 @@ class DeviceManager {
   absl::Mutex m_;
 };
 
-}  // namespace torch_az
-}  // namespace algorithms
-}  // namespace open_spiel
+} // namespace torch_az
+} // namespace algorithms
+} // namespace open_spiel
 
-#endif  // OPEN_SPIEL_ALGORITHMS_ALPHA_ZERO_TORCH_DEVICE_MANAGER_H_
+#endif // OPEN_SPIEL_ALGORITHMS_ALPHA_ZERO_TORCH_DEVICE_MANAGER_H_

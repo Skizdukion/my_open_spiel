@@ -97,7 +97,7 @@ struct AlphaZeroConfig {
     });
   }
 
-  void FromJson(const json::Object& config_json) {
+  void FromJson(const json::Object &config_json) {
     game = config_json.at("game").GetString();
     path = config_json.at("path").GetString();
     graph_def = config_json.at("graph_def").GetString();
@@ -131,10 +131,10 @@ struct AlphaZeroConfig {
   }
 };
 
-bool AlphaZero(AlphaZeroConfig config, StopToken* stop, bool resuming);
+bool AlphaZero(AlphaZeroConfig config, StopToken *stop, bool resuming);
 
-}  // namespace torch_az
-}  // namespace algorithms
-}  // namespace open_spiel
+} // namespace torch_az
+} // namespace algorithms
+} // namespace open_spiel
 
-#endif  // OPEN_SPIEL_ALGORITHMS_ALPHA_ZERO_TORCH_ALPHA_ZERO_H_
+#endif // OPEN_SPIEL_ALGORITHMS_ALPHA_ZERO_TORCH_ALPHA_ZERO_H_

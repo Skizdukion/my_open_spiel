@@ -27,7 +27,7 @@ namespace open_spiel {
 namespace algorithms {
 namespace torch_az {
 
-std::istream& operator>>(std::istream& stream, ModelConfig& config) {
+std::istream &operator>>(std::istream &stream, ModelConfig &config) {
   int channels;
   int height;
   int width;
@@ -41,7 +41,7 @@ std::istream& operator>>(std::istream& stream, ModelConfig& config) {
   return stream;
 }
 
-std::ostream& operator<<(std::ostream& stream, const ModelConfig& config) {
+std::ostream &operator<<(std::ostream &stream, const ModelConfig &config) {
   int shape_dim = config.observation_tensor_shape.size();
   int height = shape_dim > 1 ? config.observation_tensor_shape[1] : 1;
   int width = shape_dim > 2 ? config.observation_tensor_shape[2] : 1;
@@ -53,7 +53,7 @@ std::ostream& operator<<(std::ostream& stream, const ModelConfig& config) {
   return stream;
 }
 
-ResInputBlockImpl::ResInputBlockImpl(const ResInputBlockConfig& config)
+ResInputBlockImpl::ResInputBlockImpl(const ResInputBlockConfig &config)
     : conv_(torch::nn::Conv2dOptions(
                 /*input_channels=*/config.input_channels,
                 /*output_channels=*/config.filters,
@@ -66,8 +66,8 @@ ResInputBlockImpl::ResInputBlockImpl(const ResInputBlockConfig& config)
                 .padding_mode(torch::kZeros)),
       batch_norm_(torch::nn::BatchNorm2dOptions(
                       /*num_features=*/config.filters)
-                      .eps(0.001)      // Make it the same as TF.
-                      .momentum(0.01)  // Torch momentum = 1 - TF momentum.
+                      .eps(0.001)     // Make it the same as TF.
+                      .momentum(0.01) // Torch momentum = 1 - TF momentum.
                       .affine(true)
                       .track_running_stats(true)) {
   channels_ = config.input_channels;
@@ -85,7 +85,7 @@ torch::Tensor ResInputBlockImpl::forward(torch::Tensor x) {
   return output;
 }
 
-ResTorsoBlockImpl::ResTorsoBlockImpl(const ResTorsoBlockConfig& config,
+ResTorsoBlockImpl::ResTorsoBlockImpl(const ResTorsoBlockConfig &config,
                                      int layer)
     : conv1_(torch::nn::Conv2dOptions(
                  /*input_channels=*/config.input_channels,
@@ -109,14 +109,14 @@ ResTorsoBlockImpl::ResTorsoBlockImpl(const ResTorsoBlockConfig& config,
                  .padding_mode(torch::kZeros)),
       batch_norm1_(torch::nn::BatchNorm2dOptions(
                        /*num_features=*/config.filters)
-                       .eps(0.001)      // Make it the same as TF.
-                       .momentum(0.01)  // Torch momentum = 1 - TF momentum.
+                       .eps(0.001)     // Make it the same as TF.
+                       .momentum(0.01) // Torch momentum = 1 - TF momentum.
                        .affine(true)
                        .track_running_stats(true)),
       batch_norm2_(torch::nn::BatchNorm2dOptions(
                        /*num_features=*/config.filters)
-                       .eps(0.001)      // Make it the same as TF.
-                       .momentum(0.01)  // Torch momentum = 1 - TF momentum.
+                       .eps(0.001)     // Make it the same as TF.
+                       .momentum(0.01) // Torch momentum = 1 - TF momentum.
                        .affine(true)
                        .track_running_stats(true)) {
   register_module("res_" + std::to_string(layer) + "_conv_1", conv1_);
@@ -138,7 +138,7 @@ torch::Tensor ResTorsoBlockImpl::forward(torch::Tensor x) {
   return output;
 }
 
-ResOutputBlockImpl::ResOutputBlockImpl(const ResOutputBlockConfig& config)
+ResOutputBlockImpl::ResOutputBlockImpl(const ResOutputBlockConfig &config)
     : value_conv_(torch::nn::Conv2dOptions(
                       /*input_channels=*/config.input_channels,
                       /*output_channels=*/config.value_filters,
@@ -149,13 +149,12 @@ ResOutputBlockImpl::ResOutputBlockImpl(const ResOutputBlockConfig& config)
                       .groups(1)
                       .bias(true)
                       .padding_mode(torch::kZeros)),
-      value_batch_norm_(
-          torch::nn::BatchNorm2dOptions(
-              /*num_features=*/config.value_filters)
-              .eps(0.001)      // Make it the same as TF.
-              .momentum(0.01)  // Torch momentum = 1 - TF momentum.
-              .affine(true)
-              .track_running_stats(true)),
+      value_batch_norm_(torch::nn::BatchNorm2dOptions(
+                            /*num_features=*/config.value_filters)
+                            .eps(0.001)     // Make it the same as TF.
+                            .momentum(0.01) // Torch momentum = 1 - TF momentum.
+                            .affine(true)
+                            .track_running_stats(true)),
       value_linear1_(torch::nn::LinearOptions(
                          /*in_features=*/config.value_linear_in_features,
                          /*out_features=*/config.value_linear_out_features)
@@ -178,8 +177,8 @@ ResOutputBlockImpl::ResOutputBlockImpl(const ResOutputBlockConfig& config)
       policy_batch_norm_(
           torch::nn::BatchNorm2dOptions(
               /*num_features=*/config.policy_filters)
-              .eps(0.001)      // Make it the same as TF.
-              .momentum(0.01)  // Torch momentum = 1 - TF momentum.
+              .eps(0.001)     // Make it the same as TF.
+              .momentum(0.01) // Torch momentum = 1 - TF momentum.
               .affine(true)
               .track_running_stats(true)),
       policy_linear_(torch::nn::LinearOptions(
@@ -215,9 +214,9 @@ std::vector<torch::Tensor> ResOutputBlockImpl::forward(torch::Tensor x,
 
 MLPBlockImpl::MLPBlockImpl(const int in_features, const int out_features)
     : linear_(torch::nn::LinearOptions(
-                         /*in_features=*/in_features,
-                         /*out_features=*/out_features)
-                         .bias(true)) {
+                  /*in_features=*/in_features,
+                  /*out_features=*/out_features)
+                  .bias(true)) {
   register_module("linear", linear_);
 }
 
@@ -262,15 +261,14 @@ std::vector<torch::Tensor> MLPOutputBlockImpl::forward(torch::Tensor x,
   return {value_output, policy_logits};
 }
 
-ModelImpl::ModelImpl(const ModelConfig& config, const std::string& device)
-    : device_(device),
-      num_torso_blocks_(config.nn_depth),
+ModelImpl::ModelImpl(const ModelConfig &config, const std::string &device)
+    : device_(device), num_torso_blocks_(config.nn_depth),
       weight_decay_(config.weight_decay) {
   // Save config.nn_model to class
   nn_model_ = config.nn_model;
 
   int input_size = 1;
-  for (const auto& num : config.observation_tensor_shape) {
+  for (const auto &num : config.observation_tensor_shape) {
     if (num > 0) {
       input_size *= num;
     }
@@ -356,7 +354,7 @@ std::vector<torch::Tensor> ModelImpl::losses(torch::Tensor inputs,
   // L2 regularization loss (weights only).
   torch::Tensor l2_regularization_loss = torch::full(
       {1, 1}, 0, torch::TensorOptions().dtype(torch::kFloat32).device(device_));
-  for (auto& named_parameter : this->named_parameters()) {
+  for (auto &named_parameter : this->named_parameters()) {
     // named_parameter is essentially a key-value pair:
     //   {key, value} == {std::string name, torch::Tensor parameter}
     std::string parameter_name = named_parameter.key();
@@ -392,14 +390,14 @@ std::vector<torch::Tensor> ModelImpl::forward_(torch::Tensor x,
     for (int i = 0; i < num_torso_blocks_ + 1; i++) {
       x = layers_[i]->as<MLPBlock>()->forward(x);
     }
-    output = layers_[num_torso_blocks_ + 1]->as<MLPOutputBlockImpl>()
-        ->forward(x, mask);
+    output = layers_[num_torso_blocks_ + 1]->as<MLPOutputBlockImpl>()->forward(
+        x, mask);
   } else {
     throw std::runtime_error("Unknown nn_model: " + this->nn_model_);
   }
   return output;
 }
 
-}  // namespace torch_az
-}  // namespace algorithms
-}  // namespace open_spiel
+} // namespace torch_az
+} // namespace algorithms
+} // namespace open_spiel

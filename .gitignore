@@ -65,3 +65,4 @@ open_spiel/.vs
 /.env
 
 .cache
+run_output

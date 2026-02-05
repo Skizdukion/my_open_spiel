@@ -64,7 +64,7 @@ struct StartInfo {
   int64_t total_trajectories;
 };
 
-StartInfo StartInfoFromLearnerJson(const std::string& path) {
+StartInfo StartInfoFromLearnerJson(const std::string &path) {
   StartInfo start_info;
   file::File learner_file(path + "/learner.jsonl", "r");
   std::vector<std::string> learner_lines =
@@ -79,11 +79,11 @@ StartInfo StartInfoFromLearnerJson(const std::string& path) {
     }
   }
 
-  json::Object last_learner_json = json::FromString(
-      last_learner_line).value().GetObject();
+  json::Object last_learner_json =
+      json::FromString(last_learner_line).value().GetObject();
 
-  start_info.start_time = absl::Now() - absl::Seconds(
-      last_learner_json["time_rel"].GetDouble());
+  start_info.start_time =
+      absl::Now() - absl::Seconds(last_learner_json["time_rel"].GetDouble());
   start_info.start_step = last_learner_json["step"].GetInt() + 1;
   start_info.model_checkpoint_step = VPNetModel::kMostRecentCheckpointStep;
   start_info.total_trajectories =
@@ -106,9 +106,9 @@ struct Trajectory {
   std::vector<double> returns;
 };
 
-Trajectory PlayGame(Logger* logger, int game_num, const open_spiel::Game& game,
-                    std::vector<std::unique_ptr<MCTSBot>>* bots,
-                    std::mt19937* rng, double temperature, int temperature_drop,
+Trajectory PlayGame(Logger *logger, int game_num, const open_spiel::Game &game,
+                    std::vector<std::unique_ptr<MCTSBot>> *bots,
+                    std::mt19937 *rng, double temperature, int temperature_drop,
                     double cutoff_value, bool verbose = false) {
   std::unique_ptr<open_spiel::State> state = game.NewInitialState();
   std::vector<std::string> history;
@@ -126,7 +126,7 @@ Trajectory PlayGame(Logger* logger, int game_num, const open_spiel::Game& game,
       std::unique_ptr<SearchNode> root = (*bots)[player]->MCTSearch(*state);
       open_spiel::ActionsAndProbs policy;
       policy.reserve(root->children.size());
-      for (const SearchNode& c : root->children) {
+      for (const SearchNode &c : root->children) {
         policy.emplace_back(c.action,
                             std::pow(c.explore_count, 1.0 / temperature));
       }
@@ -166,8 +166,8 @@ Trajectory PlayGame(Logger* logger, int game_num, const open_spiel::Game& game,
   return trajectory;
 }
 
-std::unique_ptr<MCTSBot> InitAZBot(const AlphaZeroConfig& config,
-                                   const open_spiel::Game& game,
+std::unique_ptr<MCTSBot> InitAZBot(const AlphaZeroConfig &config,
+                                   const open_spiel::Game &game,
                                    std::shared_ptr<Evaluator> evaluator,
                                    bool evaluation) {
   return std::make_unique<MCTSBot>(
@@ -182,11 +182,11 @@ std::unique_ptr<MCTSBot> InitAZBot(const AlphaZeroConfig& config,
 }
 
 // An actor thread runner that generates games and returns trajectories.
-void actor(const open_spiel::Game& game, const AlphaZeroConfig& config, int num,
-           ThreadedQueue<Trajectory>* trajectory_queue,
-           std::shared_ptr<VPNetEvaluator> vp_eval, StopToken* stop) {
+void actor(const open_spiel::Game &game, const AlphaZeroConfig &config, int num,
+           ThreadedQueue<Trajectory> *trajectory_queue,
+           std::shared_ptr<VPNetEvaluator> vp_eval, StopToken *stop) {
   std::unique_ptr<Logger> logger;
-  if (num < 20) {  // Limit the number of open files.
+  if (num < 20) { // Limit the number of open files.
     logger.reset(new FileLogger(config.path, absl::StrCat("actor-", num)));
   } else {
     logger.reset(new NoopLogger());
@@ -202,10 +202,10 @@ void actor(const open_spiel::Game& game, const AlphaZeroConfig& config, int num,
     double cutoff =
         (dist(rng) < config.cutoff_probability ? config.cutoff_value
                                                : game.MaxUtility() + 1);
-    if (!trajectory_queue->Push(
-            PlayGame(logger.get(), game_num, game, &bots, &rng,
-                     config.temperature, config.temperature_drop, cutoff),
-            absl::Seconds(10))) {
+    if (!trajectory_queue->Push(PlayGame(logger.get(), game_num, game, &bots,
+                                         &rng, config.temperature,
+                                         config.temperature_drop, cutoff),
+                                absl::Seconds(10))) {
       logger->Print("Failed to push a trajectory after 10 seconds.");
     }
   }
@@ -213,7 +213,7 @@ void actor(const open_spiel::Game& game, const AlphaZeroConfig& config, int num,
 }
 
 class EvalResults {
- public:
+public:
   explicit EvalResults(int count, int evaluation_window) {
     results_.reserve(count);
     for (int i = 0; i < count; ++i) {
@@ -244,7 +244,7 @@ class EvalResults {
     absl::MutexLock lock(m_);
     std::vector<double> out;
     out.reserve(results_.size());
-    for (const auto& result : results_) {
+    for (const auto &result : results_) {
       out.push_back(result.Empty() ? 0
                                    : (absl::c_accumulate(result.Data(), 0.0) /
                                       result.Size()));
@@ -252,16 +252,16 @@ class EvalResults {
     return out;
   }
 
- private:
+private:
   std::vector<CircularBuffer<double>> results_;
   int eval_num_ = 0;
   absl::Mutex m_;
 };
 
 // A thread that plays vs standard MCTS.
-void evaluator(const open_spiel::Game& game, const AlphaZeroConfig& config,
-               int num, EvalResults* results,
-               std::shared_ptr<VPNetEvaluator> vp_eval, StopToken* stop) {
+void evaluator(const open_spiel::Game &game, const AlphaZeroConfig &config,
+               int num, EvalResults *results,
+               std::shared_ptr<VPNetEvaluator> vp_eval, StopToken *stop) {
   FileLogger logger(config.path, absl::StrCat("evaluator-", num));
   std::mt19937 rng;
   auto rand_evaluator = std::make_shared<RandomRolloutEvaluator>(1, num);
@@ -301,18 +301,18 @@ void evaluator(const open_spiel::Game& game, const AlphaZeroConfig& config,
   logger.Print("Got a quit.");
 }
 
-void learner(const open_spiel::Game& game, const AlphaZeroConfig& config,
-             DeviceManager* device_manager,
+void learner(const open_spiel::Game &game, const AlphaZeroConfig &config,
+             DeviceManager *device_manager,
              std::shared_ptr<VPNetEvaluator> eval,
-             ThreadedQueue<Trajectory>* trajectory_queue,
-             EvalResults* eval_results, StopToken* stop,
-             const StartInfo& start_info) {
+             ThreadedQueue<Trajectory> *trajectory_queue,
+             EvalResults *eval_results, StopToken *stop,
+             const StartInfo &start_info) {
   FileLogger logger(config.path, "learner", "a");
-  DataLoggerJsonLines data_logger(
-      config.path, "learner", true, "a", start_info.start_time);
+  DataLoggerJsonLines data_logger(config.path, "learner", true, "a",
+                                  start_info.start_time);
   std::mt19937 rng;
 
-  int device_id = 0;  // Do not change, the first device is the learner.
+  int device_id = 0; // Do not change, the first device is the learner.
   logger.Print("Running the learner on device %d: %s", device_id,
                device_manager->Get(0, device_id)->Device());
 
@@ -336,15 +336,15 @@ void learner(const open_spiel::Game& game, const AlphaZeroConfig& config,
   absl::Time last = absl::Now() - absl::Seconds(60);
   for (int step = start_info.start_step;
        !stop->StopRequested() &&
-           (config.max_steps == 0 || step <= config.max_steps);
+       (config.max_steps == 0 || step <= config.max_steps);
        ++step) {
     outcomes.Reset();
     game_lengths.Reset();
     game_lengths_hist.Reset();
-    for (auto& value_accuracy : value_accuracies) {
+    for (auto &value_accuracy : value_accuracies) {
       value_accuracy.Reset();
     }
-    for (auto& value_prediction : value_predictions) {
+    for (auto &value_prediction : value_predictions) {
       value_prediction.Reset();
     }
 
@@ -363,7 +363,7 @@ void learner(const open_spiel::Game& game, const AlphaZeroConfig& config,
         double p1_outcome = trajectory->returns[0];
         outcomes.Add(p1_outcome > 0 ? 0 : (p1_outcome < 0 ? 1 : 2));
 
-        for (const Trajectory::State& state : trajectory->states) {
+        for (const Trajectory::State &state : trajectory->states) {
           replay_buffer.Add(VPNetModel::TrainInputs{state.legal_actions,
                                                     state.observation,
                                                     state.policy, p1_outcome});
@@ -374,7 +374,7 @@ void learner(const open_spiel::Game& game, const AlphaZeroConfig& config,
           // Scale for the length of the game
           int index = (trajectory->states.size() - 1) *
                       static_cast<double>(stage) / (stage_count - 1);
-          const Trajectory::State& s = trajectory->states[index];
+          const Trajectory::State &s = trajectory->states[index];
           value_accuracies[stage].Add(
               (s.value >= 0) == (trajectory->returns[s.current_player] >= 0));
           value_predictions[stage].Add(abs(s.value));
@@ -385,12 +385,11 @@ void learner(const open_spiel::Game& game, const AlphaZeroConfig& config,
     double seconds = absl::ToDoubleSeconds(now - last);
 
     logger.Print("Step: %d", step);
-    logger.Print(
-        "Collected %5d states from %3d games, %.1f states/s; "
-        "%.1f states/(s*actor), game length: %.1f",
-        num_states, num_trajectories, num_states / seconds,
-        num_states / (config.actors * seconds),
-        static_cast<double>(num_states) / num_trajectories);
+    logger.Print("Collected %5d states from %3d games, %.1f states/s; "
+                 "%.1f states/(s*actor), game length: %.1f",
+                 num_states, num_trajectories, num_states / seconds,
+                 num_states / (config.actors * seconds),
+                 static_cast<double>(num_states) / num_trajectories);
     logger.Print("Queue size: %d. Buffer size: %d. States seen: %d", queue_size,
                  replay_buffer.Size(), replay_buffer.TotalAdded());
 
@@ -403,7 +402,7 @@ void learner(const open_spiel::Game& game, const AlphaZeroConfig& config,
     replay_buffer.SaveBuffer(config.path + "/replay_buffer.data");
 
     VPNetModel::LossInfo losses;
-    {  // Extra scope to return the device for use for inference asap.
+    { // Extra scope to return the device for use for inference asap.
       DeviceManager::DeviceLoan learn_model =
           device_manager->Get(config.train_batch_size, device_id);
 
@@ -425,8 +424,9 @@ void learner(const open_spiel::Game& game, const AlphaZeroConfig& config,
 
     // Always save a checkpoint, either for keeping or for loading the weights
     // to the other sessions. It only allows numbers, so use -1 as "latest".
-    std::string checkpoint_path = device_manager->Get(0, device_id)
-        ->SaveCheckpoint(VPNetModel::kMostRecentCheckpointStep);
+    std::string checkpoint_path =
+        device_manager->Get(0, device_id)
+            ->SaveCheckpoint(VPNetModel::kMostRecentCheckpointStep);
     if (step % config.checkpoint_freq == 0) {
       device_manager->Get(0, device_id)->SaveCheckpoint(step);
     }
@@ -499,7 +499,7 @@ void learner(const open_spiel::Game& game, const AlphaZeroConfig& config,
   }
 }
 
-bool AlphaZero(AlphaZeroConfig config, StopToken* stop, bool resuming) {
+bool AlphaZero(AlphaZeroConfig config, StopToken *stop, bool resuming) {
   std::shared_ptr<const open_spiel::Game> game =
       open_spiel::LoadGame(config.game);
 
@@ -541,9 +541,9 @@ bool AlphaZero(AlphaZeroConfig config, StopToken* stop, bool resuming) {
 
   std::cout << "Playing game: " << config.game << std::endl;
 
-  config.inference_batch_size = std::max(
-      1,
-      std::min(config.inference_batch_size, config.actors + config.evaluators));
+  config.inference_batch_size =
+      std::max(1, std::min(config.inference_batch_size,
+                           config.actors + config.evaluators));
 
   config.inference_threads =
       std::max(1, std::min(config.inference_threads,
@@ -563,7 +563,7 @@ bool AlphaZero(AlphaZeroConfig config, StopToken* stop, bool resuming) {
   }
 
   DeviceManager device_manager;
-  for (const absl::string_view& device : absl::StrSplit(config.devices, ',')) {
+  for (const absl::string_view &device : absl::StrSplit(config.devices, ',')) {
     device_manager.AddDevice(
         VPNetModel(*game, config.path, config.graph_def, std::string(device)));
   }
@@ -584,7 +584,7 @@ bool AlphaZero(AlphaZeroConfig config, StopToken* stop, bool resuming) {
 
   std::cerr << "Loading model from step " << start_info.model_checkpoint_step
             << std::endl;
-  {  // Make sure they're all in sync.
+  { // Make sure they're all in sync.
     if (!resuming) {
       device_manager.Get(0)->SaveCheckpoint(start_info.model_checkpoint_step);
     }
@@ -627,16 +627,16 @@ bool AlphaZero(AlphaZeroConfig config, StopToken* stop, bool resuming) {
   trajectory_queue.Clear();
 
   std::cout << "Joining all the threads." << std::endl;
-  for (auto& t : actors) {
+  for (auto &t : actors) {
     t.join();
   }
-  for (auto& t : evaluators) {
+  for (auto &t : evaluators) {
     t.join();
   }
   std::cout << "Exiting cleanly." << std::endl;
   return true;
 }
 
-}  // namespace torch_az
-}  // namespace algorithms
-}  // namespace open_spiel
+} // namespace torch_az
+} // namespace algorithms
+} // namespace open_spiel
