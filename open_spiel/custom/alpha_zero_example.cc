@@ -73,7 +73,7 @@ ABSL_FLAG(bool, explicit_learning, false,
           "not take on inference requests) which can only be used when "
           "multiple devices are available).");
 ABSL_FLAG(bool, verbose, false, "Show the MCTS stats of possible moves.");
-ABSL_FLAG(int, actors, 4, "How many actors to run.");
+ABSL_FLAG(int, actors, 6, "How many actors to run.");
 ABSL_FLAG(int, evaluators, 2, "How many evaluators to run.");
 ABSL_FLAG(int, eval_levels, 7,
           ("Play evaluation games vs MCTS+Solver, with max_simulations*10^(n/2)"
@@ -92,7 +92,7 @@ void signal_handler(int s) {
     stop_token.Stop();
   }
 }
-// --game=tic_tac_toe --verbose=true /home/lpk/my_open_spiel/run_output/config.json
+
 void signal_installer() {
   struct sigaction sigIntHandler;
   sigIntHandler.sa_handler = signal_handler;

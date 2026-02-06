@@ -2,15 +2,12 @@
 
 # 1. Debug Build (For Development & VS Code)
 
-mkdir -p build_debug
-cd build_debug
-export BUILD_TYPE=Debug
-export OPEN_SPIEL_BUILD_WITH_LIBTORCH=ON
-export OPEN_SPIEL_BUILD_WITH_LIBNOP=ON
+mkdir -p build
+cd build
 
 # Note: Point to ../open_spiel because that's where CMakeLists.txt is
 
-BUILD_SHARED_LIB=ON CXX=clang++ cmake -DPython3_EXECUTABLE=$(which python3) -DBUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ../open_spiel
+BUILD_TYPE=Debug OPEN_SPIEL_BUILD_WITH_LIBTORCH=ON OPEN_SPIEL_BUILD_WITH_LIBNOP=ON BUILD_SHARED_LIB=ON CXX=clang++ cmake -DPython3_EXECUTABLE=$(which python3) -DBUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ../open_spiel
 make -j$(nproc) open_spiel
 
 # 2. Release Build (For Performance/Benchmarking)
@@ -18,10 +15,7 @@ make -j$(nproc) open_spiel
 cd ..
 mkdir -p build_release
 cd build_release
-export BUILD_TYPE=Release
-export OPEN_SPIEL_BUILD_WITH_LIBTORCH=ON
-export OPEN_SPIEL_BUILD_WITH_LIBNOP=ON
-BUILD_SHARED_LIB=ON CXX=clang++ cmake -DPython3_EXECUTABLE=$(which python3) -DBUILD_TYPE=Release ../open_spiel
+BUILD_TYPE=Release OPEN_SPIEL_BUILD_WITH_LIBTORCH=ON OPEN_SPIEL_BUILD_WITH_LIBNOP=ON BUILD_SHARED_LIB=ON CXX=clang++ cmake -DPython3_EXECUTABLE=$(which python3) -DBUILD_TYPE=Release ../open_spiel
 make -j$(nproc) open_spiel
 
 # 3. Link build compile_commands to apply clangd language server
@@ -50,3 +44,10 @@ Helpful command
 ./alpha_zero_vs_random /home/lpk/my_open_spiel/run_output/alpha_zero_tic_tac_toe/config.json /home/lpk/my_open_spiel/run_output/alpha_zero_tic_tac_toe/checkpoint-100
 
 ./alpha_zero_self_play /home/lpk/my_open_spiel/run_output/alpha_zero_tic_tac_toe/config.json /home/lpk/my_open_spiel/run_output/alpha_zero_tic_tac_toe/checkpoint-100 /home/lpk/my_open_spiel/run_output/alpha_zero_tic_tac_toe/checkpoint-200 --num_games=10000
+
+./custom/alpha_zero_example \
+ --game=gomuko \
+ --path=/home/lpk/my_open_spiel/run_output/alpha_zero_gomuko_basic \
+ --devices=cuda:0 \
+ --max_steps=500 
+ --actors=6
