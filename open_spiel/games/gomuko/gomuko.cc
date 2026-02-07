@@ -41,22 +41,23 @@ struct Direction {
 const std::vector<Direction> kDirections = {{0, 1}, {1, 0}, {1, 1}, {1, -1}};
 
 // Facts about the game.
-const GameType kGameType{
-    /*short_name=*/"gomuko",
-    /*long_name=*/"Gomuko",
-    GameType::Dynamics::kSequential,
-    GameType::ChanceMode::kDeterministic,
-    GameType::Information::kPerfectInformation,
-    GameType::Utility::kZeroSum,
-    GameType::RewardModel::kTerminal,
-    /*max_num_players=*/2,
-    /*min_num_players=*/2,
-    /*provides_information_state_string=*/true,
-    /*provides_information_state_tensor=*/false,
-    /*provides_observation_string=*/true,
-    /*provides_observation_tensor=*/true,
-    /*parameter_specification=*/{} // no parameters
-};
+const GameType kGameType{/*short_name=*/"gomuko",
+                         /*long_name=*/"Gomuko",
+                         GameType::Dynamics::kSequential,
+                         GameType::ChanceMode::kDeterministic,
+                         GameType::Information::kPerfectInformation,
+                         GameType::Utility::kZeroSum,
+                         GameType::RewardModel::kTerminal,
+                         /*max_num_players=*/2,
+                         /*min_num_players=*/2,
+                         /*provides_information_state_string=*/true,
+                         /*provides_information_state_tensor=*/false,
+                         /*provides_observation_string=*/true,
+                         /*provides_observation_tensor=*/true,
+                         /*parameter_specification=*/
+                         {{"rows", GameParameter(kDefaultRows)},
+                          {"cols", GameParameter(kDefaultCols)},
+                          {"winSize", GameParameter(kDefaultWinSize)}}};
 
 std::shared_ptr<const Game> Factory(const GameParameters &params) {
   return std::shared_ptr<const Game>(new GomukoGame(params));
@@ -114,37 +115,26 @@ std::string StateToString(CellState state) {
   }
 }
 
-bool BoardHasLine(const std::array<CellState, kNumCells> &board,
-                  const Player player, const Action action) {
+bool BoardHasLine(const std::vector<CellState> &board, const Player player,
+                  const Action action, int rows, int cols, int win_size) {
   CellState c = PlayerToState(player);
-  int row = action / kNumCols;
-  int col = action % kNumCols;
-
-  // std::cout << "Action: " << action << "\n";
-  // std::cout << "Row: " << row << "\n";
-  // std::cout << "Col: " << col << "\n";
+  int row = action / cols;
+  int col = action % cols;
 
   for (const Direction &dir : kDirections) {
     int count = 1;
 
     for (int multiplier : {1, -1}) {
-      // std::cout << "Dir R: " << dir.r << ", Dir C: " << dir.c
-      //           << ", Mutiplier: " << multiplier << "\n";
 
       int nc = col + dir.c * multiplier;
       int nr = row + dir.r * multiplier;
 
       while (true) {
-        if (nr < 0 || nr >= kNumRows || nc < 0 || nc >= kNumCols) {
+        if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) {
           break;
         }
 
-        Action cur_pos = nr * kNumCols + nc;
-
-        // std::cout << "Loop Check Action: " << cur_pos << "\n";
-        // std::cout << "Loop Check Row: " << nr << "\n";
-        // std::cout << "Loop Check Col: " << nc << "\n";
-        // std::cout << "Board: " << board[cur_pos] << "\n";
+        Action cur_pos = nr * cols + nc;
 
         if (board[cur_pos] != c) {
           break;
@@ -154,15 +144,12 @@ bool BoardHasLine(const std::array<CellState, kNumCells> &board,
         nr += dir.r * multiplier;
         nc += dir.c * multiplier;
 
-        if (count >= kWinSize) {
-          // std::cout << "Finished -------- \n";
+        if (count >= win_size) {
           return true;
         }
       }
     }
   }
-
-  // std::cout << "--------------------- \n";
 
   return false;
 }
@@ -187,7 +174,7 @@ std::vector<Action> GomukoState::LegalActions() const {
     return {};
   // Can move in any empty cell.
   std::vector<Action> moves;
-  for (int cell = 0; cell < kNumCells; ++cell) {
+  for (int cell = 0; cell < num_cells_; ++cell) {
     if (board_[cell] == CellState::kEmpty) {
       moves.push_back(cell);
     }
@@ -200,22 +187,27 @@ std::string GomukoState::ActionToString(Player player, Action action_id) const {
 }
 
 bool GomukoState::HasLine(Player player, Action move) const {
-  return BoardHasLine(board_, player, move);
+  return BoardHasLine(board_, player, move, rows_, cols_, win_size_);
 }
 
-bool GomukoState::IsFull() const { return num_moves_ == kNumCells; }
+bool GomukoState::IsFull() const { return num_moves_ == num_cells_; }
 
 GomukoState::GomukoState(std::shared_ptr<const Game> game) : State(game) {
-  std::fill(begin(board_), end(board_), CellState::kEmpty);
+  const GomukoGame &gomuko_game = static_cast<const GomukoGame &>(*game);
+  rows_ = gomuko_game.rows();
+  cols_ = gomuko_game.cols();
+  win_size_ = gomuko_game.win_size();
+  num_cells_ = rows_ * cols_;
+  board_.resize(num_cells_, CellState::kEmpty);
 }
 
 std::string GomukoState::ToString() const {
   std::string str;
-  for (int r = 0; r < kNumRows; ++r) {
-    for (int c = 0; c < kNumCols; ++c) {
+  for (int r = 0; r < rows_; ++r) {
+    for (int c = 0; c < cols_; ++c) {
       absl::StrAppend(&str, StateToString(BoardAt(r, c)));
     }
-    if (r < (kNumRows - 1)) {
+    if (r < (rows_ - 1)) {
       absl::StrAppend(&str, "\n");
     }
   }
@@ -244,8 +236,8 @@ GomukoState::ToObservationStruct(Player player) const {
 std::unique_ptr<ActionStruct>
 GomukoState::ActionToStruct(Player player, Action action_id) const {
   auto action_struct = std::make_unique<GomukoActionStruct>();
-  action_struct->row = action_id / kNumCols;
-  action_struct->col = action_id % kNumCols;
+  action_struct->row = action_id / cols_;
+  action_struct->col = action_id % cols_;
   return action_struct;
 }
 
@@ -254,10 +246,10 @@ Action GomukoState::StructToAction(const ActionStruct &action_struct) const {
       dynamic_cast<const GomukoActionStruct *>(&action_struct);
   SPIEL_CHECK_TRUE(ttt_action_struct != nullptr);
   SPIEL_CHECK_GE(ttt_action_struct->row, 0);
-  SPIEL_CHECK_LT(ttt_action_struct->row, kNumRows);
+  SPIEL_CHECK_LT(ttt_action_struct->row, rows_);
   SPIEL_CHECK_GE(ttt_action_struct->col, 0);
-  SPIEL_CHECK_LT(ttt_action_struct->col, kNumCols);
-  return ttt_action_struct->row * kNumCols + ttt_action_struct->col;
+  SPIEL_CHECK_LT(ttt_action_struct->col, cols_);
+  return ttt_action_struct->row * cols_ + ttt_action_struct->col;
 }
 
 bool GomukoState::IsTerminal() const {
@@ -292,8 +284,8 @@ void GomukoState::ObservationTensor(Player player,
   SPIEL_CHECK_LT(player, num_players_);
 
   // Treat `values` as a 2-d tensor.
-  TensorView<2> view(values, {kCellStates, kNumCells}, true);
-  for (int cell = 0; cell < kNumCells; ++cell) {
+  TensorView<2> view(values, {kCellStates, num_cells_}, true);
+  for (int cell = 0; cell < num_cells_; ++cell) {
     view[{static_cast<int>(board_[cell]), cell}] = 1.0;
   }
 }
@@ -313,7 +305,7 @@ std::unique_ptr<State> GomukoState::Clone() const {
 
 std::string GomukoGame::ActionToString(Player player, Action action_id) const {
   return absl::StrCat(StateToString(PlayerToState(player)), "(",
-                      action_id / kNumCols, ",", action_id % kNumCols, ")");
+                      action_id / cols_, ",", action_id % cols_, ")");
 }
 
 // Implement this later, currently we dont need to parse state from json for now
@@ -387,7 +379,9 @@ std::string GomukoGame::ActionToString(Player player, Action action_id) const {
 // }
 
 GomukoGame::GomukoGame(const GameParameters &params)
-    : Game(kGameType, params) {}
+    : Game(kGameType, params), rows_(ParameterValue<int>("rows")),
+      cols_(ParameterValue<int>("cols")),
+      win_size_(ParameterValue<int>("winSize")) {}
 
 } // namespace gomuko
 } // namespace open_spiel

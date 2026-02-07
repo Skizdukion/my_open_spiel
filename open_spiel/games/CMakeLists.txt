@@ -492,6 +492,9 @@ add_executable(gomuko_test gomuko/gomuko_test.cc ${OPEN_SPIEL_OBJECTS}
   $<TARGET_OBJECTS:tests>)
 add_test(gomuko_test gomuko_test)
 
+add_executable(gomuko_performance_check gomuko/gomuko_performance_check.cc ${OPEN_SPIEL_OBJECTS}
+  $<TARGET_OBJECTS:tests>)
+
 add_executable(goofspiel_test goofspiel/goofspiel_test.cc ${OPEN_SPIEL_OBJECTS}
   $<TARGET_OBJECTS:tests>)
 add_test(goofspiel_test goofspiel_test)

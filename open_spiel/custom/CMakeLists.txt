@@ -12,6 +12,19 @@ if(OPEN_SPIEL_BUILD_WITH_LIBTORCH)
         $<TARGET_OBJECTS:bots>)
     target_link_libraries(alpha_zero_example ${TORCH_LIBRARIES})
 
+    add_executable(alpha_zero_gomuko alpha_zero_gomuko.cc
+        ${OPEN_SPIEL_OBJECTS}
+        $<TARGET_OBJECTS:alpha_zero_torch>
+        $<TARGET_OBJECTS:bots>)
+    target_link_libraries(alpha_zero_gomuko ${TORCH_LIBRARIES})
+
+
+    add_executable(alpha_zero_actors alpha_zero_actors.cc
+        ${OPEN_SPIEL_OBJECTS}
+        $<TARGET_OBJECTS:alpha_zero_torch>
+        $<TARGET_OBJECTS:bots>)
+    target_link_libraries(alpha_zero_actors ${TORCH_LIBRARIES})
+
     add_executable(alpha_zero_interactive alpha_zero_interactive.cc
         ${OPEN_SPIEL_OBJECTS}
         $<TARGET_OBJECTS:alpha_zero_torch>

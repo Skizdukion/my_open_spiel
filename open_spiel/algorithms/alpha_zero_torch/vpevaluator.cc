@@ -27,7 +27,7 @@ namespace torch_az {
 
 VPNetEvaluator::VPNetEvaluator(DeviceManager* device_manager, int batch_size,
                                int threads, int cache_size, int cache_shards)
-    : device_manager_(*device_manager),
+    : device_manager_(*device_manager), // Take the address and then Dereference
       batch_size_(batch_size),
       queue_(batch_size * threads * 4),
       batch_size_hist_(batch_size + 1) {

@@ -45,9 +45,11 @@ Helpful command
 
 ./alpha_zero_self_play /home/lpk/my_open_spiel/run_output/alpha_zero_tic_tac_toe/config.json /home/lpk/my_open_spiel/run_output/alpha_zero_tic_tac_toe/checkpoint-100 /home/lpk/my_open_spiel/run_output/alpha_zero_tic_tac_toe/checkpoint-200 --num_games=10000
 
+./custom/alpha_zero_gomuko --path=/home/lpk/my_open_spiel/run_output/alpha_zero_gomuko_medium --devices=cuda:0 --max_steps=100 --num_rows=7 --num_cols=7 --win_size=4 --replay_buffer_size=10240 --inference_batch_size=2 --actors=12 --evaluators=4
+
 ./custom/alpha_zero_example \
  --game=gomuko \
  --path=/home/lpk/my_open_spiel/run_output/alpha_zero_gomuko_basic \
  --devices=cuda:0 \
- --max_steps=500 
+ --max_steps=500 \
  --actors=6

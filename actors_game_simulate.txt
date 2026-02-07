@@ -1,0 +1,11 @@
+Config simulatation: Devices{cuda:0} Actors{7} MapSize{3,3} WinSize{3}
+Total game simulated: 21845, Time: 33.003s, Games/s: 661.91
+
+Config simulatation: Devices{cpu} Actors{7} MapSize{3,3} WinSize{3}
+Total game simulated: 21845, Time: 26.0021s, Games/s: 840.124
+
+Config simulatation: Devices{cuda:0} Actors{7} MapSize{6,6} WinSize{4}
+Total game simulated: 8, Time: 181.015s, Games/s: 0.0441951
+
+Config simulatation: Devices{cpu} Actors{7} MapSize{6,6} WinSize{4}
+Total game simulated: 15, Time: 128.015s, Games/s: 0.117174

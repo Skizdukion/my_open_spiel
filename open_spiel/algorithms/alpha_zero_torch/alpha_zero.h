@@ -15,13 +15,16 @@
 #ifndef OPEN_SPIEL_ALGORITHMS_ALPHA_ZERO_TORCH_ALPHA_ZERO_H_
 #define OPEN_SPIEL_ALGORITHMS_ALPHA_ZERO_TORCH_ALPHA_ZERO_H_
 
-#include <iostream>
 #include <string>
-#include <vector>
 
-#include "open_spiel/utils/file.h"
+#include "algorithms/alpha_zero_torch/vpevaluator.h"
+#include "open_spiel/abseil-cpp/absl/algorithm/container.h"
+#include "open_spiel/abseil-cpp/absl/synchronization/mutex.h"
+#include "open_spiel/spiel.h"
+#include "open_spiel/utils/circular_buffer.h"
 #include "open_spiel/utils/json.h"
 #include "open_spiel/utils/thread.h"
+#include "utils/threaded_queue.h"
 
 namespace open_spiel {
 namespace algorithms {
@@ -131,7 +134,78 @@ struct AlphaZeroConfig {
   }
 };
 
+struct Trajectory {
+  struct State {
+    std::vector<float> observation;
+    open_spiel::Player current_player;
+    std::vector<open_spiel::Action> legal_actions;
+    open_spiel::Action action;
+    open_spiel::ActionsAndProbs policy;
+    double value;
+  };
+
+  std::vector<State> states;
+  std::vector<double> returns;
+};
+
+class EvalResults {
+public:
+  explicit EvalResults(int count, int evaluation_window) {
+    results_.reserve(count);
+    for (int i = 0; i < count; ++i) {
+      results_.emplace_back(evaluation_window);
+    }
+  }
+
+  // How many evals per difficulty.
+  int EvalCount() {
+    absl::MutexLock lock(m_);
+    return eval_num_ / results_.size();
+  }
+
+  // Which eval to do next: difficulty, player0.
+  std::pair<int, bool> Next() {
+    absl::MutexLock lock(m_);
+    int next = eval_num_ % (results_.size() * 2);
+    eval_num_ += 1;
+    return {next / 2, next % 2};
+  }
+
+  void Add(int i, double value) {
+    absl::MutexLock lock(m_);
+    results_[i].Add(value);
+  }
+
+  std::vector<double> AvgResults() {
+    absl::MutexLock lock(m_);
+    std::vector<double> out;
+    out.reserve(results_.size());
+    for (const auto &result : results_) {
+      out.push_back(result.Empty() ? 0
+                                   : (absl::c_accumulate(result.Data(), 0.0) /
+                                      result.Size()));
+    }
+    return out;
+  }
+
+private:
+  std::vector<CircularBuffer<double>> results_;
+  int eval_num_ = 0;
+  absl::Mutex m_;
+};
+
 bool AlphaZero(AlphaZeroConfig config, StopToken *stop, bool resuming);
+bool AlphaZero(AlphaZeroConfig config,
+               std::shared_ptr<const open_spiel::Game> game, StopToken *stop,
+               bool resuming);
+
+void actor(const open_spiel::Game &game, const AlphaZeroConfig &config, int num,
+           ThreadedQueue<Trajectory> *trajectory_queue,
+           std::shared_ptr<VPNetEvaluator> vp_eval, StopToken *stop);
+
+void evaluator(const open_spiel::Game &game, const AlphaZeroConfig &config,
+               int num, EvalResults *results,
+               std::shared_ptr<VPNetEvaluator> vp_eval, StopToken *stop);
 
 } // namespace torch_az
 } // namespace algorithms

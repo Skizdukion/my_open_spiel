@@ -25,14 +25,12 @@
 #include <utility>
 #include <vector>
 
-#include "open_spiel/abseil-cpp/absl/algorithm/container.h"
 #include "open_spiel/abseil-cpp/absl/random/uniform_real_distribution.h"
 #include "open_spiel/abseil-cpp/absl/strings/str_cat.h"
 #include "open_spiel/abseil-cpp/absl/strings/str_format.h"
 #include "open_spiel/abseil-cpp/absl/strings/str_join.h"
 #include "open_spiel/abseil-cpp/absl/strings/str_split.h"
 #include "open_spiel/abseil-cpp/absl/strings/string_view.h"
-#include "open_spiel/abseil-cpp/absl/synchronization/mutex.h"
 #include "open_spiel/abseil-cpp/absl/time/clock.h"
 #include "open_spiel/abseil-cpp/absl/time/time.h"
 #include "open_spiel/abseil-cpp/absl/types/optional.h"
@@ -42,7 +40,6 @@
 #include "open_spiel/algorithms/mcts.h"
 #include "open_spiel/spiel.h"
 #include "open_spiel/spiel_utils.h"
-#include "open_spiel/utils/circular_buffer.h"
 #include "open_spiel/utils/data_logger.h"
 #include "open_spiel/utils/file.h"
 #include "open_spiel/utils/json.h"
@@ -91,20 +88,6 @@ StartInfo StartInfoFromLearnerJson(const std::string &path) {
 
   return start_info;
 }
-
-struct Trajectory {
-  struct State {
-    std::vector<float> observation;
-    open_spiel::Player current_player;
-    std::vector<open_spiel::Action> legal_actions;
-    open_spiel::Action action;
-    open_spiel::ActionsAndProbs policy;
-    double value;
-  };
-
-  std::vector<State> states;
-  std::vector<double> returns;
-};
 
 Trajectory PlayGame(Logger *logger, int game_num, const open_spiel::Game &game,
                     std::vector<std::unique_ptr<MCTSBot>> *bots,
@@ -212,52 +195,6 @@ void actor(const open_spiel::Game &game, const AlphaZeroConfig &config, int num,
   logger->Print("Got a quit.");
 }
 
-class EvalResults {
-public:
-  explicit EvalResults(int count, int evaluation_window) {
-    results_.reserve(count);
-    for (int i = 0; i < count; ++i) {
-      results_.emplace_back(evaluation_window);
-    }
-  }
-
-  // How many evals per difficulty.
-  int EvalCount() {
-    absl::MutexLock lock(m_);
-    return eval_num_ / results_.size();
-  }
-
-  // Which eval to do next: difficulty, player0.
-  std::pair<int, bool> Next() {
-    absl::MutexLock lock(m_);
-    int next = eval_num_ % (results_.size() * 2);
-    eval_num_ += 1;
-    return {next / 2, next % 2};
-  }
-
-  void Add(int i, double value) {
-    absl::MutexLock lock(m_);
-    results_[i].Add(value);
-  }
-
-  std::vector<double> AvgResults() {
-    absl::MutexLock lock(m_);
-    std::vector<double> out;
-    out.reserve(results_.size());
-    for (const auto &result : results_) {
-      out.push_back(result.Empty() ? 0
-                                   : (absl::c_accumulate(result.Data(), 0.0) /
-                                      result.Size()));
-    }
-    return out;
-  }
-
-private:
-  std::vector<CircularBuffer<double>> results_;
-  int eval_num_ = 0;
-  absl::Mutex m_;
-};
-
 // A thread that plays vs standard MCTS.
 void evaluator(const open_spiel::Game &game, const AlphaZeroConfig &config,
                int num, EvalResults *results,
@@ -352,6 +289,7 @@ void learner(const open_spiel::Game &game, const AlphaZeroConfig &config,
     int queue_size = trajectory_queue->Size();
     int num_states = 0;
     int num_trajectories = 0;
+    int next_log_threshold = learn_rate / 10;
     while (!stop->StopRequested() && num_states < learn_rate) {
       absl::optional<Trajectory> trajectory = trajectory_queue->Pop();
       if (trajectory) {
@@ -378,6 +316,12 @@ void learner(const open_spiel::Game &game, const AlphaZeroConfig &config,
           value_accuracies[stage].Add(
               (s.value >= 0) == (trajectory->returns[s.current_player] >= 0));
           value_predictions[stage].Add(abs(s.value));
+        }
+
+        if (num_states >= next_log_threshold) {
+          logger.Print("Step %d progress: %d/%d states (%.1f%%)", step,
+                       num_states, learn_rate, 100.0 * num_states / learn_rate);
+          next_log_threshold += learn_rate / 10;
         }
       }
     }
@@ -502,6 +446,12 @@ void learner(const open_spiel::Game &game, const AlphaZeroConfig &config,
 bool AlphaZero(AlphaZeroConfig config, StopToken *stop, bool resuming) {
   std::shared_ptr<const open_spiel::Game> game =
       open_spiel::LoadGame(config.game);
+  return AlphaZero(config, game, stop, resuming);
+}
+
+bool AlphaZero(AlphaZeroConfig config,
+               std::shared_ptr<const open_spiel::Game> game, StopToken *stop,
+               bool resuming) {
 
   open_spiel::GameType game_type = game->GetType();
   if (game->NumPlayers() != 2)
@@ -562,7 +512,7 @@ bool AlphaZero(AlphaZeroConfig config, StopToken *stop, bool resuming) {
     start_info = StartInfoFromLearnerJson(config.path);
   }
 
-  DeviceManager device_manager;
+  DeviceManager device_manager; // Store this in stack ? Weird
   for (const absl::string_view &device : absl::StrSplit(config.devices, ',')) {
     device_manager.AddDevice(
         VPNetModel(*game, config.path, config.graph_def, std::string(device)));
@@ -586,8 +536,13 @@ bool AlphaZero(AlphaZeroConfig config, StopToken *stop, bool resuming) {
             << std::endl;
   { // Make sure they're all in sync.
     if (!resuming) {
+      // Because of each devices is Init Random,
+      // so we take the first model params and save to disk, so when loaded the
+      // params is in sync
       device_manager.Get(0)->SaveCheckpoint(start_info.model_checkpoint_step);
     }
+
+    // Load all devices from checkoint
     for (int i = 0; i < device_manager.Count(); ++i) {
       device_manager.Get(0, i)->LoadCheckpoint(
           start_info.model_checkpoint_step);
@@ -595,7 +550,8 @@ bool AlphaZero(AlphaZeroConfig config, StopToken *stop, bool resuming) {
   }
 
   auto eval = std::make_shared<VPNetEvaluator>(
-      &device_manager, config.inference_batch_size, config.inference_threads,
+      &device_manager, config.inference_batch_size,
+      config.inference_threads, // &device_manager -> pass an address
       config.inference_cache, (config.actors + config.evaluators) / 16);
 
   ThreadedQueue<Trajectory> trajectory_queue(config.replay_buffer_size /

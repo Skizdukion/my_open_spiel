@@ -56,7 +56,7 @@ class VPNetEvaluator : public Evaluator {
 
   void Runner();
 
-  DeviceManager& device_manager_;
+  DeviceManager& device_manager_; // an alias for reference
   std::vector<std::unique_ptr<LRUCache<uint64_t, VPNetModel::InferenceOutputs>>>
       cache_;
   const int batch_size_;

@@ -34,15 +34,10 @@ namespace gomuko {
 
 // Constants.
 inline constexpr int kNumPlayers = 2;
-inline constexpr int kNumRows = 7;
-inline constexpr int kNumCols = 7;
-inline constexpr int kNumCells = kNumRows * kNumCols;
-inline constexpr int kWinSize = 4;
+inline constexpr int kDefaultRows = 7;
+inline constexpr int kDefaultCols = 7;
+inline constexpr int kDefaultWinSize = 4;
 inline constexpr int kCellStates = 1 + kNumPlayers; // empty, 'x', and 'o'.
-
-// https://math.stackexchange.com/questions/485752/Gomuko-state-space-choose-calculation/485852
-// inline constexpr int kNumberStates = 5478; No Idea how to calculate this,
-// back later if this constants is needed
 
 // State of a cell.
 enum class CellState {
@@ -115,7 +110,7 @@ public:
   std::vector<CellState> Board() const;
   CellState BoardAt(int cell) const { return board_[cell]; }
   CellState BoardAt(int row, int column) const {
-    return board_[row * kNumCols + column];
+    return board_[row * cols_ + column];
   }
   Player outcome() const { return outcome_; }
   void ChangePlayer() { current_player_ = current_player_ == 0 ? 1 : 0; }
@@ -130,7 +125,7 @@ public:
   Action StructToAction(const ActionStruct &action_struct) const override;
 
 protected:
-  std::array<CellState, kNumCells> board_;
+  std::vector<CellState> board_;
   void DoApplyAction(Action move) override;
 
 private:
@@ -141,28 +136,41 @@ private:
   Player current_player_ = 0;   // Player zero goes first
   Player outcome_ = kInvalidPlayer;
   int num_moves_ = 0;
+
+  // Dimensions specifically for this state's game instance
+  int rows_;
+  int cols_;
+  int num_cells_;
+  int win_size_;
 };
 
 // Game object.
 class GomukoGame : public Game {
 public:
   explicit GomukoGame(const GameParameters &params);
-  int NumDistinctActions() const override { return kNumCells; }
+  int NumDistinctActions() const override { return rows_ * cols_; }
   std::unique_ptr<State> NewInitialState() const override {
     return std::unique_ptr<State>(new GomukoState(shared_from_this()));
   }
-  // std::unique_ptr<State> NewInitialState(const nlohmann::json &json) const {
-  //   return std::unique_ptr<State>(new GomukoState(shared_from_this(), json));
-  // }
+
   int NumPlayers() const override { return kNumPlayers; }
   double MinUtility() const override { return -1; }
   absl::optional<double> UtilitySum() const override { return 0; }
   double MaxUtility() const override { return 1; }
   std::vector<int> ObservationTensorShape() const override {
-    return {kCellStates, kNumRows, kNumCols};
+    return {kCellStates, rows_, cols_};
   }
-  int MaxGameLength() const override { return kNumCells; }
+  int MaxGameLength() const override { return rows_ * cols_; }
   std::string ActionToString(Player player, Action action_id) const override;
+
+  int rows() const { return rows_; }
+  int cols() const { return cols_; }
+  int win_size() const { return win_size_; }
+
+private:
+  int rows_;
+  int cols_;
+  int win_size_;
 };
 
 CellState PlayerToState(Player player);
@@ -170,8 +178,8 @@ std::string PlayerToString(Player player);
 std::string StateToString(CellState state);
 
 // Does this player have a line at this action?
-bool BoardHasLine(const std::array<CellState, kNumCells> &board,
-                  const Player player, const Action action);
+bool BoardHasLine(const std::vector<CellState> &board, const Player player,
+                  const Action action, int rows, int cols, int win_size);
 
 inline std::ostream &operator<<(std::ostream &stream, const CellState &state) {
   return stream << StateToString(state);
