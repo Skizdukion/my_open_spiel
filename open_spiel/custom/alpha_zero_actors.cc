@@ -1,5 +1,5 @@
 #include "games/gomuko/gomuko.h"
-#include "games/tic_tac_toe/tic_tac_toe.h"
+
 #include "open_spiel/algorithms/alpha_zero_torch/alpha_zero.h"
 
 #include <cmath>
@@ -15,6 +15,7 @@
 #include "open_spiel/utils/thread.h"
 #include "open_spiel/utils/threaded_queue.h"
 #include "utils/file.h"
+
 #include <csignal>
 
 ABSL_FLAG(int, actors, 7, "How many actors to run.");
@@ -30,15 +31,14 @@ ABSL_FLAG(int, nn_depth, 10, "Model depth");
 ABSL_FLAG(int, evaluation_window, 100, "Evaluation window");
 ABSL_FLAG(int, batch_size, 1,
           "Inference batch size"); /* inference_batch_size */
-ABSL_FLAG(int, cache_size, 262144,
-          "Inference cache size"); /* inference_cache */
+ABSL_FLAG(int, inference_threads, 2, "Number of inference threads");
 
-ABSL_FLAG(double, uct_c, 2.0, "UCT exploration constant");
 ABSL_FLAG(double, policy_alpha, 1.0, "Policy alpha");
 ABSL_FLAG(double, policy_epsilon, 0.25, "Policy epsilon");
 
 ABSL_FLAG(double, learning_rate, 0.0001, "Learning rate");
 ABSL_FLAG(double, weight_decay, 0.0001, "Weight decay");
+ABSL_FLAG(int, max_simulations, 300, "Max simulation");
 
 namespace open_spiel {
 namespace algorithms {
@@ -87,11 +87,11 @@ int run_main() {
   config.replay_buffer_reuse = 3;
   config.checkpoint_freq = 50;
   config.evaluation_window = absl::GetFlag(FLAGS_evaluation_window);
-  config.uct_c = absl::GetFlag(FLAGS_uct_c);
-  config.max_simulations = 300;
+  config.uct_c = 2.0;
+  config.max_simulations = absl::GetFlag(FLAGS_max_simulations);
   config.inference_batch_size = absl::GetFlag(FLAGS_batch_size);
-  config.inference_threads = 1;
-  config.inference_cache = absl::GetFlag(FLAGS_cache_size);
+  config.inference_threads = absl::GetFlag(FLAGS_inference_threads);
+  config.inference_cache = 262144;
   config.policy_alpha = absl::GetFlag(FLAGS_policy_alpha);
   config.policy_epsilon = absl::GetFlag(FLAGS_policy_epsilon);
   config.temperature = 1;
@@ -101,6 +101,27 @@ int run_main() {
   config.evaluators = 1;
   config.eval_levels = 7;
   config.max_steps = 300;
+
+  file::Remove(config.path);
+
+  file::Mkdirs(config.path);
+  if (!file::IsDirectory(config.path)) {
+    std::cerr << config.path << " is not a directory." << std::endl;
+    return false;
+  }
+
+  if (config.graph_def.empty()) {
+    config.graph_def = "vpnet.pb";
+    std::string model_path = absl::StrCat(config.path, "/", config.graph_def);
+    if (file::Exists(model_path)) {
+      std::cout << "Overwriting existing model: " << model_path << std::endl;
+    } else {
+      std::cout << "Creating model: " << model_path << std::endl;
+    }
+    SPIEL_CHECK_TRUE(CreateGraphDef(
+        *game, config.learning_rate, config.weight_decay, config.path,
+        config.graph_def, config.nn_model, config.nn_width, config.nn_depth));
+  }
 
   DeviceManager device_manager;
 
@@ -136,7 +157,8 @@ int run_main() {
             << "," << absl::GetFlag(FLAGS_num_cols) << "} WinSize{"
             << absl::GetFlag(FLAGS_win_size) << "} NN_Model{" << config.nn_model
             << "} NN_Width{" << config.nn_width << "} NN_Depth{"
-            << config.nn_depth << "}\n";
+            << config.nn_depth << "} Inference Batch Size{"
+            << config.inference_batch_size << "}\n";
   std::cout << "Total game simulated: " << total_games << ", Time: " << seconds
             << "s, Games/s: " << total_games / seconds << std::endl;
 

@@ -17,9 +17,9 @@
 #include <torch/torch.h>
 #include <torch/types.h>
 
-#include <cstdint>
 #include <algorithm>
-#include <fstream>  // For ifstream/ofstream.
+#include <cstdint>
+#include <fstream> // For ifstream/ofstream.
 #include <string>
 #include <vector>
 
@@ -38,8 +38,8 @@ namespace torch_az {
 // CreateGraphDef is called. To avoid having to change this, allow calls to
 // CreateGraphDef, however now it simply saves a struct to a file which can
 // then be loaded and used to initialize a model.
-bool SaveModelConfig(const std::string& path, const std::string& filename,
-                     const ModelConfig& net_config) {
+bool SaveModelConfig(const std::string &path, const std::string &filename,
+                     const ModelConfig &net_config) {
   std::ofstream file;
   file.open(absl::StrCat(path, "/", filename));
 
@@ -59,8 +59,8 @@ bool SaveModelConfig(const std::string& path, const std::string& filename,
 // CreateGraphDef is called. To avoid having to change this, allow calls to
 // CreateGraphDef, however now it simply saves a struct to a file which can
 // then be loaded and used to initialize a model.
-ModelConfig LoadModelConfig(const std::string& path,
-                            const std::string& filename) {
+ModelConfig LoadModelConfig(const std::string &path,
+                            const std::string &filename) {
   std::ifstream file;
   file.open(absl::StrCat(path, "/", filename));
   ModelConfig net_config;
@@ -81,15 +81,15 @@ ModelConfig LoadModelConfig(const std::string& path,
 // Currently, this function only disregards a slash if it exists at the
 // beginning of the device string, more functionality can be added if
 // needed.
-std::string TorchDeviceName(const std::string& device) {
+std::string TorchDeviceName(const std::string &device) {
   if (device[0] == '/') {
     return device.substr(1);
   }
   return device;
 }
 
-bool CreateGraphDef(const Game& game, double learning_rate, double weight_decay,
-                    const std::string& path, const std::string& filename,
+bool CreateGraphDef(const Game &game, double learning_rate, double weight_decay,
+                    const std::string &path, const std::string &filename,
                     std::string nn_model, int nn_width, int nn_depth,
                     bool verbose) {
   ModelConfig net_config = {
@@ -104,17 +104,16 @@ bool CreateGraphDef(const Game& game, double learning_rate, double weight_decay,
   return SaveModelConfig(path, filename, net_config);
 }
 
-VPNetModel::VPNetModel(const Game& game, const std::string& path,
-                       const std::string& file_name, const std::string& device)
-    : device_(device),
-      path_(path),
+VPNetModel::VPNetModel(const Game &game, const std::string &path,
+                       const std::string &file_name, const std::string &device)
+    : device_(device), path_(path),
       flat_input_size_(game.ObservationTensorSize()),
       num_actions_(game.NumDistinctActions()),
       model_config_(LoadModelConfig(path, file_name)),
       model_(model_config_, TorchDeviceName(device)),
       model_optimizer_(
           model_->parameters(),
-          torch::optim::AdamOptions(  // NOLINT(misc-include-cleaner)
+          torch::optim::AdamOptions( // NOLINT(misc-include-cleaner)
               model_config_.learning_rate)),
       torch_device_(TorchDeviceName(device)) {
   // Some assumptions that we can remove eventually. The value net returns
@@ -141,15 +140,17 @@ void VPNetModel::LoadCheckpoint(int step) {
   LoadCheckpoint(absl::StrCat(path_, "/checkpoint-", step));
 }
 
-void VPNetModel::LoadCheckpoint(const std::string& path) {
+void VPNetModel::LoadCheckpoint(const std::string &path) {
   torch::load(model_, absl::StrCat(path, ".pt"), torch_device_);
   torch::load(model_optimizer_, absl::StrCat(path, "-optimizer.pt"),
               torch_device_);
 }
 
-std::vector<VPNetModel::InferenceOutputs> VPNetModel::Inference(
-    const std::vector<InferenceInputs>& inputs) {
+std::vector<VPNetModel::InferenceOutputs>
+VPNetModel::Inference(const std::vector<InferenceInputs> &inputs) {
   int inference_batch_size = inputs.size();
+  // std::cout << "DEBUG: VPNetModel::Inference start batch=" <<
+  // inference_batch_size << std::endl;
 
   // Format the data outside of torch. Random assignments can be very slow on
   // torch::Tensor objects and this approach is _much_ faster.
@@ -183,15 +184,19 @@ std::vector<VPNetModel::InferenceOutputs> VPNetModel::Inference(
 
   // Run the inference.
   model_->eval();
+  // std::cout << "DEBUG: calling model_->forward" << std::endl;
   std::vector<torch::Tensor> torch_outputs =
       model_(torch_inf_inputs, torch_inf_legal_mask);
+  // std::cout << "DEBUG: finished model_->forward" << std::endl;
 
   torch::Tensor value_batch = torch_outputs[0];
   torch::Tensor policy_batch = torch_outputs[1];
 
-  // Copy the Torch tensor output to the appropriate structure.
   std::vector<InferenceOutputs> output;
   output.reserve(inference_batch_size);
+
+#if 0
+  // OLD SLOW VERSION: Synchronizes per element
   for (int batch = 0; batch < inference_batch_size; ++batch) {
     double value = value_batch[batch].item<double>();
 
@@ -204,11 +209,36 @@ std::vector<VPNetModel::InferenceOutputs> VPNetModel::Inference(
 
     output.push_back({value, state_policy});
   }
+#else
+  // NEW OPTIMIZED VERSION: Batch transfer to CPU
+  // Move the entire batch to CPU at once to avoid synchronization overhead per
+  // element.
+  torch::Tensor value_batch_cpu = value_batch.to(torch::kCPU);
+  torch::Tensor policy_batch_cpu = policy_batch.to(torch::kCPU);
+
+  // Get accessors for fast C++ indexing on CPU.
+  // Assuming the model outputs floats.
+  auto value_accessor = value_batch_cpu.accessor<float, 2>();
+  auto policy_accessor = policy_batch_cpu.accessor<float, 2>();
+
+  // Copy the Torch tensor output to the appropriate structure.
+  for (int batch = 0; batch < inference_batch_size; ++batch) {
+    double value = static_cast<double>(value_accessor[batch][0]);
+
+    ActionsAndProbs state_policy;
+    state_policy.reserve(inputs[batch].legal_actions.size());
+    for (Action action : inputs[batch].legal_actions) {
+      state_policy.push_back({action, policy_accessor[batch][action]});
+    }
+
+    output.push_back({value, state_policy});
+  }
+#endif
 
   return output;
 }
 
-VPNetModel::LossInfo VPNetModel::Learn(const std::vector<TrainInputs>& inputs) {
+VPNetModel::LossInfo VPNetModel::Learn(const std::vector<TrainInputs> &inputs) {
   int training_batch_size = inputs.size();
 
   std::vector<float> raw_train_inputs(training_batch_size * flat_input_size_);
@@ -273,6 +303,6 @@ VPNetModel::LossInfo VPNetModel::Learn(const std::vector<TrainInputs>& inputs) {
                   torch_outputs[2].item<float>());
 }
 
-}  // namespace torch_az
-}  // namespace algorithms
-}  // namespace open_spiel
+} // namespace torch_az
+} // namespace algorithms
+} // namespace open_spiel
