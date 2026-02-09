@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <cstdlib>
+#include <iostream>
 #include <signal.h>
 #include <string>
 #include <vector>
@@ -114,6 +115,7 @@ int main(int argc, char **argv) {
   open_spiel::algorithms::torch_az::AlphaZeroConfig config;
 
   if (positional_args.size() > 1) {
+    std::cout << "Resume training from a checkpoint";
     // Resume training from a checkpoint.
     resuming = true;
 
@@ -129,6 +131,7 @@ int main(int argc, char **argv) {
 
     config.FromJson(config_json);
   } else {
+    std::cout << "Start from fresh config";
     resuming = false;
 
     config.path = absl::GetFlag(FLAGS_path);
