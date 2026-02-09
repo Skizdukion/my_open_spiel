@@ -103,6 +103,8 @@ VPNetModel::InferenceOutputs VPNetEvaluator::Inference(const State &state) {
   if (batch_size_ <= 1) {
     outputs = device_manager_.Get(1)->Inference(std::vector{inputs})[0];
   } else {
+    // Pushing state to inference queue
+
     std::promise<VPNetModel::InferenceOutputs> prom;
     std::future<VPNetModel::InferenceOutputs> fut = prom.get_future();
     // std::cout << "DEBUG: Pushing to queue" << std::endl;

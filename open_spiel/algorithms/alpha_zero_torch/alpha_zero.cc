@@ -106,6 +106,7 @@ Trajectory PlayGame(Logger *logger, int game_num, const open_spiel::Game &game,
       state->ApplyAction(action);
     } else {
       open_spiel::Player player = state->CurrentPlayer();
+      // Run MCTS Search
       std::unique_ptr<SearchNode> root = (*bots)[player]->MCTSearch(*state);
       open_spiel::ActionsAndProbs policy;
       policy.reserve(root->children.size());

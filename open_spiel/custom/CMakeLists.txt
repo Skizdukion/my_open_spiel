@@ -30,6 +30,13 @@ if(OPEN_SPIEL_BUILD_WITH_LIBTORCH)
         $<TARGET_OBJECTS:alpha_zero_torch>
         $<TARGET_OBJECTS:bots>)
     target_link_libraries(alpha_zero_interactive ${TORCH_LIBRARIES})
+
+    add_executable(alpha_zero_gomuko_interactive alpha_zero_gomuko_interactive.cc
+        ${OPEN_SPIEL_OBJECTS}
+        $<TARGET_OBJECTS:alpha_zero_torch>
+        $<TARGET_OBJECTS:bots>)
+    target_link_libraries(alpha_zero_gomuko_interactive ${TORCH_LIBRARIES})
+
     add_executable(alpha_zero_vs_random alpha_zero_vs_random.cc
         ${OPEN_SPIEL_OBJECTS}
         $<TARGET_OBJECTS:alpha_zero_torch>
@@ -41,4 +48,10 @@ if(OPEN_SPIEL_BUILD_WITH_LIBTORCH)
         $<TARGET_OBJECTS:alpha_zero_torch>
         $<TARGET_OBJECTS:bots>)
     target_link_libraries(alpha_zero_self_play ${TORCH_LIBRARIES})
+
+    add_executable(alpha_zero_self_play_gomuko alpha_zero_self_play_gomuko.cc
+        ${OPEN_SPIEL_OBJECTS}
+        $<TARGET_OBJECTS:alpha_zero_torch>
+        $<TARGET_OBJECTS:bots>)
+    target_link_libraries(alpha_zero_self_play_gomuko ${TORCH_LIBRARIES})
 endif()

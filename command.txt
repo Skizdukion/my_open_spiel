@@ -1,0 +1,2 @@
+./custom/alpha_zero_gomuko --path=/home/lpk/my_open_spiel/run_output/alpha_zero_gomuko_medium --devices=cuda:0 --max_steps=500 --inference_batch_size=1024 --actors=2048 --inference_threads=2 --num_rows=12 --num_cols=12 --win_size=5 --nn_model=resnet --nn_width=32 --nn_depth=3 --evaluators=4 --max_simulations=300
+

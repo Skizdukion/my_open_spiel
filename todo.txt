@@ -1,0 +1,1 @@
+In gomuko games, I want to implement action pruning. The logic was in the first move -> No mask, but then in second move. only move that related within 2 hex ( like it the first move is 2,2 then 0,0 to 4,4 is valid and other action is invalid )
