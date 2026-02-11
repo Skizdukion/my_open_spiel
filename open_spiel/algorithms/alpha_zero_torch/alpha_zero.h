@@ -53,6 +53,8 @@ struct AlphaZeroConfig {
 
   double uct_c;
   int max_simulations;
+  int small_simulations;
+  double small_simulations_sample_chances;
   double policy_alpha;
   double policy_epsilon;
   double temperature;
@@ -87,6 +89,8 @@ struct AlphaZeroConfig {
         {"evaluation_window", evaluation_window},
         {"uct_c", uct_c},
         {"max_simulations", max_simulations},
+        {"small_simulations", small_simulations},
+        {"small_simulations_sample_chances", small_simulations_sample_chances},
         {"policy_alpha", policy_alpha},
         {"policy_epsilon", policy_epsilon},
         {"temperature", temperature},
@@ -121,6 +125,16 @@ struct AlphaZeroConfig {
     evaluation_window = config_json.at("evaluation_window").GetInt();
     uct_c = config_json.at("uct_c").GetDouble();
     max_simulations = config_json.at("max_simulations").GetInt();
+    small_simulations = 0;
+    if (config_json.find("small_simulations") != config_json.end()) {
+      small_simulations = config_json.at("small_simulations").GetInt();
+    }
+    small_simulations_sample_chances = 0;
+    if (config_json.find("small_simulations_sample_chances") !=
+        config_json.end()) {
+      small_simulations_sample_chances =
+          config_json.at("small_simulations_sample_chances").GetDouble();
+    }
     policy_alpha = config_json.at("policy_alpha").GetDouble();
     policy_epsilon = config_json.at("policy_epsilon").GetDouble();
     temperature = config_json.at("temperature").GetDouble();

@@ -56,12 +56,16 @@ ABSL_FLAG(double, replay_buffer_reuse, 3,
           "How many times to reuse each state in the replay buffer.");
 ABSL_FLAG(int, checkpoint_freq, 100, "Save a checkpoint every N steps.");
 ABSL_FLAG(int, max_simulations, 300, "How many simulations to run.");
+ABSL_FLAG(int, small_simulations, 50, "How many small simulations to run.");
+ABSL_FLAG(double, small_simulations_sample_chances, 0.75,
+          "Chances to run small simulations instead of max simulations, "
+          "recommended at 0.75.");
 ABSL_FLAG(int, train_batch_size, 1 << 10,
           "How many states to learn from per batch.");
 ABSL_FLAG(int, inference_batch_size, 1,
           "How many threads to wait for for inference.");
 ABSL_FLAG(int, inference_threads, 0, "How many threads to run inference.");
-ABSL_FLAG(int, inference_cache, 1 << 18,
+ABSL_FLAG(int, inference_cache, 1 << 20,
           "Whether to cache the results from inference.");
 ABSL_FLAG(std::string, devices, "/cpu:0",
           "Comma separated list of devices. The first device listed is used "
@@ -150,6 +154,9 @@ int main(int argc, char **argv) {
     config.evaluation_window = absl::GetFlag(FLAGS_evaluation_window);
     config.uct_c = absl::GetFlag(FLAGS_uct_c);
     config.max_simulations = absl::GetFlag(FLAGS_max_simulations);
+    config.small_simulations = absl::GetFlag(FLAGS_small_simulations);
+    config.small_simulations_sample_chances =
+        absl::GetFlag(FLAGS_small_simulations_sample_chances);
     config.train_batch_size = absl::GetFlag(FLAGS_train_batch_size);
     config.inference_batch_size = absl::GetFlag(FLAGS_inference_batch_size);
     config.inference_threads = absl::GetFlag(FLAGS_inference_threads);

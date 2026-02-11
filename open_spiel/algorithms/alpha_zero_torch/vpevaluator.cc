@@ -91,6 +91,7 @@ VPNetModel::InferenceOutputs VPNetEvaluator::Inference(const State &state) {
   uint64_t key;
   int cache_shard;
   if (!cache_.empty()) {
+    // Create cache key
     key = absl::Hash<VPNetModel::InferenceInputs>{}(inputs);
     cache_shard = key % cache_.size();
     absl::optional<const VPNetModel::InferenceOutputs> opt_outputs =
@@ -99,6 +100,7 @@ VPNetModel::InferenceOutputs VPNetEvaluator::Inference(const State &state) {
       return *opt_outputs;
     }
   }
+
   VPNetModel::InferenceOutputs outputs;
   if (batch_size_ <= 1) {
     outputs = device_manager_.Get(1)->Inference(std::vector{inputs})[0];

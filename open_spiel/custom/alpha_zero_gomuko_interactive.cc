@@ -100,9 +100,9 @@ void PlayGame(const Game &game, std::shared_ptr<Bot> bot, int human_player) {
 int main(int argc, char **argv) {
 
   open_spiel::GameParameters params;
-  params["rows"] = open_spiel::GameParameter(6);
-  params["cols"] = open_spiel::GameParameter(6);
-  params["winSize"] = open_spiel::GameParameter(4);
+  params["rows"] = open_spiel::GameParameter(16);
+  params["cols"] = open_spiel::GameParameter(16);
+  params["winSize"] = open_spiel::GameParameter(5);
 
   open_spiel::Init("", &argc, &argv, true);
   std::vector<char *> positional_args = absl::ParseCommandLine(argc, argv);

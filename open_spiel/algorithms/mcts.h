@@ -81,44 +81,45 @@ enum class ChildSelectionPolicy {
 // returns an evaluation of that state, which should correlate with chances of
 // winning the game for player 0.
 class Evaluator {
- public:
+public:
   virtual ~Evaluator() = default;
 
   // Return a value of this state for each player.
-  virtual std::vector<double> Evaluate(const State& state) = 0;
+  virtual std::vector<double> Evaluate(const State &state) = 0;
 
   // Return a policy: the probability of the current player playing each action.
-  virtual ActionsAndProbs Prior(const State& state) = 0;
+  virtual ActionsAndProbs Prior(const State &state) = 0;
 };
 
 // A simple evaluator that returns the average outcome of playing random actions
 // from the given state until the end of the game.
 // n_rollouts is the number of random outcomes to be considered.
 class RandomRolloutEvaluator : public Evaluator {
- public:
+public:
   explicit RandomRolloutEvaluator(int n_rollouts, int seed)
       : n_rollouts_(n_rollouts), rng_(seed) {}
 
   // Runs random games, returning the average returns.
-  std::vector<double> Evaluate(const State& state) override;
+  std::vector<double> Evaluate(const State &state) override;
 
   // Returns equal probability for each action.
-  ActionsAndProbs Prior(const State& state) override;
+  ActionsAndProbs Prior(const State &state) override;
 
- private:
+private:
   int n_rollouts_;
   std::mt19937 rng_;
 };
 
 // A node in the search tree for MCTS
 struct SearchNode {
-  Action action = 0;            // The action taken to get to this node.
-  double prior = 0;             // The prior probability of playing this action.
-  Player player = 0;            // Which player gets to make this action.
-  int explore_count = 0;        // Number of times this node was explored.
-  double total_reward = 0;      // Total reward passing through this node.
-  std::vector<double> outcome;  // The reward if each players plays perfectly.
-  std::vector<SearchNode> children;  // The successors to this state.
+  Action action = 0;           // The action taken to get to this node.
+  double prior = 0;            // The prior probability of playing this action.
+  Player player = 0;           // Which player gets to make this action.
+  int explore_count = 0;       // Number of times this node was explored.
+  double total_reward = 0;     // Total reward passing through this node.
+  std::vector<double> outcome; // The reward if each players plays perfectly.
+  std::vector<SearchNode> children; // The successors to this state.
+  bool is_full_search = true;
 
   SearchNode() {}
 
@@ -132,22 +133,21 @@ struct SearchNode {
   double PUCTValue(int parent_explore_count, double uct_c) const;
 
   // The sort order for the BestChild.
-  bool CompareFinal(const SearchNode& b) const;
-  const SearchNode& BestChild() const;
+  bool CompareFinal(const SearchNode &b) const;
+  const SearchNode &BestChild() const;
 
   // Return a string representation of this node, or all its children.
   // The state is needed to convert the action to a string.
-  std::string ToString(const State& state) const;
-  std::string ChildrenStr(const State& state) const;
+  std::string ToString(const State &state) const;
+  std::string ChildrenStr(const State &state) const;
 
-  Action SampleFromPrior(const State& state,
-                         Evaluator* evaluator,
-                         std::mt19937* rng) const;
+  Action SampleFromPrior(const State &state, Evaluator *evaluator,
+                         std::mt19937 *rng) const;
 };
 
 // A SpielBot that uses the MCTS algorithm as its policy.
 class MCTSBot : public Bot {
- public:
+public:
   // The evaluator is passed as a shared pointer to make it explicit that
   // the same evaluator instance can be passed to multiple bots and to
   // make the MCTSBot Python interface work regardless of the scope of the
@@ -159,10 +159,21 @@ class MCTSBot : public Bot {
   // std::shared_ptr<Evaluator> in the constructor leads to the Julia API test
   // failing. We don't know why right now, but intend to fix this.
   MCTSBot(
-      const Game& game, std::shared_ptr<Evaluator> evaluator, double uct_c,
+      const Game &game, std::shared_ptr<Evaluator> evaluator, double uct_c,
       int max_simulations,
-      int64_t max_memory_mb,  // Max memory use in megabytes.
-      bool solve,             // Whether to back up solved states.
+      int64_t max_memory_mb, // Max memory use in megabytes.
+      bool solve,            // Whether to back up solved states.
+      int seed, bool verbose,
+      ChildSelectionPolicy child_selection_policy = ChildSelectionPolicy::UCT,
+      double dirichlet_alpha = 0, double dirichlet_epsilon = 0,
+      bool dont_return_chance_node = false);
+
+  MCTSBot(
+      const Game &game, std::shared_ptr<Evaluator> evaluator, double uct_c,
+      int max_simulations, int small_simulations,
+      int small_simulations_sample_chances,
+      int64_t max_memory_mb, // Max memory use in megabytes.
+      bool solve,            // Whether to back up solved states.
       int seed, bool verbose,
       ChildSelectionPolicy child_selection_policy = ChildSelectionPolicy::UCT,
       double dirichlet_alpha = 0, double dirichlet_epsilon = 0,
@@ -170,20 +181,20 @@ class MCTSBot : public Bot {
   ~MCTSBot() = default;
 
   void Restart() override {}
-  void RestartAt(const State& state) override {}
+  void RestartAt(const State &state) override {}
   // Run MCTS for one step, choosing the action, and printing some information.
-  Action Step(const State& state) override;
+  Action Step(const State &state) override;
 
   // Implements StepWithPolicy. This is equivalent to calling Step, but wraps
   // the action as an ActionsAndProbs with 100% probability assigned to the
   // lone action.
-  std::pair<ActionsAndProbs, Action> StepWithPolicy(
-      const State& state) override;
+  std::pair<ActionsAndProbs, Action>
+  StepWithPolicy(const State &state) override;
 
   // Run MCTS on a given state, and return the resulting search tree.
-  std::unique_ptr<SearchNode> MCTSearch(const State& state);
+  std::unique_ptr<SearchNode> MCTSearch(const State &state);
 
- private:
+private:
   // Applies the UCT policy to play the game until reaching a leaf node.
   //
   // A leaf node is defined as a node that is terminal or has not been evaluated
@@ -197,15 +208,17 @@ class MCTSBot : public Bot {
   //     node to a leaf node.
   //
   // Returns: The state of the game at the leaf node.
-  std::unique_ptr<State> ApplyTreePolicy(SearchNode* root, const State& state,
-                                         std::vector<SearchNode*>* visit_path);
+  std::unique_ptr<State> ApplyTreePolicy(SearchNode *root, const State &state,
+                                         std::vector<SearchNode *> *visit_path);
 
-  void GarbageCollect(SearchNode* node);
+  void GarbageCollect(SearchNode *node);
 
   double uct_c_;
   int max_simulations_;
-  int max_nodes_;  // Max nodes allowed in the tree
-  int nodes_;  // Nodes used in the tree.
+  int small_simulations_;
+  double small_simulations_sample_chances_;
+  int max_nodes_; // Max nodes allowed in the tree
+  int nodes_;     // Nodes used in the tree.
   int gc_limit_;
   bool verbose_;
   bool solve_;
@@ -220,9 +233,9 @@ class MCTSBot : public Bot {
 
 // Returns a vector of noise sampled from a dirichlet distribution. See:
 // https://en.wikipedia.org/wiki/Dirichlet_process
-std::vector<double> dirichlet_noise(int count, double alpha, std::mt19937* rng);
+std::vector<double> dirichlet_noise(int count, double alpha, std::mt19937 *rng);
 
-}  // namespace algorithms
-}  // namespace open_spiel
+} // namespace algorithms
+} // namespace open_spiel
 
-#endif  // OPEN_SPIEL_ALGORITHMS_MCTS_H_
+#endif // OPEN_SPIEL_ALGORITHMS_MCTS_H_

@@ -92,12 +92,17 @@ StartInfo StartInfoFromLearnerJson(const std::string &path) {
 Trajectory PlayGame(Logger *logger, int game_num, const open_spiel::Game &game,
                     std::vector<std::unique_ptr<MCTSBot>> *bots,
                     std::mt19937 *rng, double temperature, int temperature_drop,
-                    double cutoff_value, bool verbose = false) {
+                    double cutoff_value, StopToken *stop,
+                    bool verbose = false) {
   std::unique_ptr<open_spiel::State> state = game.NewInitialState();
   std::vector<std::string> history;
   Trajectory trajectory;
 
-  while (true) {
+  while (!stop->StopRequested()) {
+    //  In the game tree, a "Chance Node" represents a point where "Nature" acts
+    //  instead of a player,
+    // this is not needed for tictactoe, but some game like Backgammon, poker,
+    // nature will handle for player
     if (state->IsChanceNode()) {
       open_spiel::ActionsAndProbs outcomes = state->ChanceOutcomes();
       open_spiel::Action action =
@@ -109,6 +114,7 @@ Trajectory PlayGame(Logger *logger, int game_num, const open_spiel::Game &game,
       // Run MCTS Search
       std::unique_ptr<SearchNode> root = (*bots)[player]->MCTSearch(*state);
       open_spiel::ActionsAndProbs policy;
+
       policy.reserve(root->children.size());
       for (const SearchNode &c : root->children) {
         policy.emplace_back(c.action,
@@ -116,16 +122,25 @@ Trajectory PlayGame(Logger *logger, int game_num, const open_spiel::Game &game,
       }
       NormalizePolicy(&policy);
       open_spiel::Action action;
+
+      // Exploration in here
       if (history.size() >= temperature_drop) {
         action = root->BestChild().action;
       } else {
         action = open_spiel::SampleAction(policy, *rng).first;
       }
 
-      double root_value = root->total_reward / root->explore_count;
-      trajectory.states.push_back(Trajectory::State{
-          state->ObservationTensor(), player, state->LegalActions(), action,
-          std::move(policy), root_value});
+      double root_value = 0;
+      if (root->explore_count > 0) {
+        root_value = root->total_reward / root->explore_count;
+      }
+
+      if (root->is_full_search) {
+        trajectory.states.push_back(Trajectory::State{
+            state->ObservationTensor(), player, state->LegalActions(), action,
+            std::move(policy), root_value});
+      }
+
       std::string action_str = state->ActionToString(player, action);
       history.push_back(action_str);
       state->ApplyAction(action);
@@ -144,6 +159,11 @@ Trajectory PlayGame(Logger *logger, int game_num, const open_spiel::Game &game,
     }
   }
 
+  if (stop->StopRequested()) {
+    logger->Print("Game %d: Stopped early.", game_num);
+    return trajectory;
+  }
+
   logger->Print("Game %d: Returns: %s; Actions: %s", game_num,
                 absl::StrJoin(trajectory.returns, " "),
                 absl::StrJoin(history, " "));
@@ -156,6 +176,7 @@ std::unique_ptr<MCTSBot> InitAZBot(const AlphaZeroConfig &config,
                                    bool evaluation) {
   return std::make_unique<MCTSBot>(
       game, std::move(evaluator), config.uct_c, config.max_simulations,
+      config.small_simulations, config.small_simulations_sample_chances,
       /*max_memory_mb=*/10,
       /*solve=*/false,
       /*seed=*/0,
@@ -188,7 +209,7 @@ void actor(const open_spiel::Game &game, const AlphaZeroConfig &config, int num,
                                                : game.MaxUtility() + 1);
     if (!trajectory_queue->Push(PlayGame(logger.get(), game_num, game, &bots,
                                          &rng, config.temperature,
-                                         config.temperature_drop, cutoff),
+                                         config.temperature_drop, cutoff, stop),
                                 absl::Seconds(10))) {
       logger->Print("Failed to push a trajectory after 10 seconds.");
     }
@@ -228,7 +249,7 @@ void evaluator(const open_spiel::Game &game, const AlphaZeroConfig &config,
     logger.Print("Running MCTS with %d simulations", rand_max_simulations);
     Trajectory trajectory = PlayGame(
         &logger, game_num, game, &bots, &rng, /*temperature=*/1,
-        /*temperature_drop=*/0, /*cutoff_value=*/game.MaxUtility() + 1);
+        /*temperature_drop=*/0, /*cutoff_value=*/game.MaxUtility() + 1, stop);
 
     results->Add(difficulty, trajectory.returns[az_player]);
     logger.Print("Game %d: AZ: %5.2f, MCTS: %5.2f, MCTS-sims: %d, length: %d",
@@ -442,6 +463,9 @@ void learner(const open_spiel::Game &game, const AlphaZeroConfig &config,
     data_logger.Write(record);
     logger.Print("");
   }
+
+  // Save the buffer one last time to ensure we don't lose data on exit.
+  replay_buffer.SaveBuffer(config.path + "/replay_buffer.data");
 }
 
 bool AlphaZero(AlphaZeroConfig config, StopToken *stop, bool resuming) {

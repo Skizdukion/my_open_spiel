@@ -1,8 +1,40 @@
-import time
+
 import os
+import sys
 import asyncio
 import argparse
 from telegram import Bot
+
+def daemonize():
+    """Fork the process and detach from the terminal."""
+    try:
+        pid = os.fork()
+        if pid > 0:
+            sys.exit(0) # Exit first parent
+    except OSError as e:
+        sys.stderr.write(f"fork #1 failed: {e.errno} ({e.strerror})\n")
+        sys.exit(1)
+
+    os.setsid() # Decouple from parent environment
+
+    try:
+        pid = os.fork()
+        if pid > 0:
+            sys.exit(0) # Exit second parent
+    except OSError as e:
+        sys.stderr.write(f"fork #2 failed: {e.errno} ({e.strerror})\n")
+        sys.exit(1)
+
+    # Redirect standard file descriptors
+    sys.stdout.flush()
+    sys.stderr.flush()
+    with open(os.devnull, 'r') as si:
+        os.dup2(si.fileno(), sys.stdin.fileno())
+    with open(os.devnull, 'a+') as so:
+        os.dup2(so.fileno(), sys.stdout.fileno())
+    with open(os.devnull, 'a+') as se:
+        os.dup2(se.fileno(), sys.stderr.fileno())
+
 
 async def send_to_telegram(bot, chat_id, message):
     try:
@@ -12,10 +44,7 @@ async def send_to_telegram(bot, chat_id, message):
 
 async def watch_logs(token, chat_id, log_file_path, interval):
     bot = Bot(token=token)
-    print("--- Telegram Harvester Started ---")
-    print(f"Target File: {log_file_path}")
-    print(f"Chat ID:     {chat_id}")
-    
+
     # Ensure the file exists before starting
     if not os.path.exists(log_file_path):
         print(f"Warning: {log_file_path} not found. Waiting for it to be created...")
@@ -48,8 +77,18 @@ def main():
 
     args = parser.parse_args()
 
+    # Convert to absolute path to avoid issues if daemon changes cwd (though we skipped chdir /)
+    abs_log_path = os.path.abspath(args.file)
+
+    print("--- Telegram Harvester Started ---")
+    print(f"Target File: {abs_log_path}")
+    print(f"Chat ID:     {args.chat_id}")
+    print("Running in background...")
+
+    daemonize()
+
     try:
-        asyncio.run(watch_logs(args.token, args.chat_id, args.file, args.interval))
+        asyncio.run(watch_logs(args.token, args.chat_id, abs_log_path, args.interval))
     except KeyboardInterrupt:
         print("\nStopping harvester...")
 
