@@ -62,13 +62,13 @@ async def watch_logs(token, chat_id, log_file_path, interval, topic_id=None):
             line = f.readline()
             if not line:
                 await send_to_telegram(bot, chat_id, 'Health Ping Noti', topic_id)
+                await asyncio.sleep(interval)
             else:
                 clean_line = line.strip()
                 if clean_line:
                     # You can filter logs here (e.g., only send if "Reward" is in line)
                     await send_to_telegram(bot, chat_id, clean_line, topic_id)
             
-            await asyncio.sleep(interval)
 
 def main():
     parser = argparse.ArgumentParser(description="Harvest logs and send them to Telegram.")

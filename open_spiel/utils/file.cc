@@ -14,6 +14,7 @@
 
 #include "open_spiel/utils/file.h"
 
+#include <iostream>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -41,8 +42,10 @@ namespace open_spiel::file {
 
 class File::FileImpl : public std::FILE {};
 
-File::File(const std::string& filename, const std::string& mode) {
-  fd_.reset(static_cast<FileImpl*>(std::fopen(filename.c_str(), mode.c_str())));
+File::File(const std::string &filename, const std::string &mode) {
+  fd_.reset(
+      static_cast<FileImpl *>(std::fopen(filename.c_str(), mode.c_str())));
+  std::cout << "Check file: " << filename;
   SPIEL_CHECK_TRUE(fd_);
 }
 
@@ -53,8 +56,8 @@ File::~File() {
   }
 }
 
-File::File(File&& other) = default;
-File& File::operator=(File&& other) = default;
+File::File(File &&other) = default;
+File &File::operator=(File &&other) = default;
 
 bool File::Close() { return !std::fclose(fd_.release()); }
 bool File::Flush() { return !std::fflush(fd_.get()); }
@@ -88,24 +91,24 @@ std::int64_t File::Length() {
   return length;
 }
 
-std::string ReadContentsFromFile(const std::string& filename,
-                                 const std::string& mode) {
+std::string ReadContentsFromFile(const std::string &filename,
+                                 const std::string &mode) {
   File f(filename, mode);
   return f.ReadContents();
 }
 
-void WriteContentsToFile(const std::string& filename, const std::string& mode,
-                         const std::string& contents) {
+void WriteContentsToFile(const std::string &filename, const std::string &mode,
+                         const std::string &contents) {
   File f(filename, mode);
   f.Write(contents);
 }
 
-bool Exists(const std::string& path) {
+bool Exists(const std::string &path) {
   struct stat info;
   return stat(path.c_str(), &info) == 0;
 }
 
-std::string RealPath(const std::string& path) {
+std::string RealPath(const std::string &path) {
 #ifdef _WIN32
   char real_path[MAX_PATH];
   if (_fullpath(real_path, path.c_str(), MAX_PATH) == nullptr) {
@@ -120,16 +123,16 @@ std::string RealPath(const std::string& path) {
   return std::string(real_path);
 }
 
-bool IsDirectory(const std::string& path) {
+bool IsDirectory(const std::string &path) {
   struct stat info;
   return stat(path.c_str(), &info) == 0 && info.st_mode & S_IFDIR;
 }
 
-bool Mkdir(const std::string& path, int mode) {
+bool Mkdir(const std::string &path, int mode) {
   return mkdir(path.c_str(), mode) == 0;
 }
 
-bool Mkdirs(const std::string& path, int mode) {
+bool Mkdirs(const std::string &path, int mode) {
   struct stat info;
   size_t pos = 0;
   while (pos != std::string::npos) {
@@ -137,19 +140,19 @@ bool Mkdirs(const std::string& path, int mode) {
     std::string sub_path = path.substr(0, pos);
     if (stat(sub_path.c_str(), &info) == 0) {
       if (info.st_mode & S_IFDIR) {
-        continue;  // directory already exists
+        continue; // directory already exists
       } else {
-        return false;  // is a file?
+        return false; // is a file?
       }
     }
     if (!Mkdir(sub_path, mode)) {
-      return false;  // permission error?
+      return false; // permission error?
     }
   }
   return true;
 }
 
-bool Remove(const std::string& path) {
+bool Remove(const std::string &path) {
   if (IsDirectory(path)) {
     return rmdir(path.c_str()) == 0;
   } else {
@@ -157,11 +160,11 @@ bool Remove(const std::string& path) {
   }
 }
 
-std::string GetEnv(const std::string& key, const std::string& default_value) {
-  char* val = std::getenv(key.c_str());
+std::string GetEnv(const std::string &key, const std::string &default_value) {
+  char *val = std::getenv(key.c_str());
   return ((val != nullptr) ? std::string(val) : default_value);
 }
 
 std::string GetTmpDir() { return GetEnv("TMPDIR", "/tmp"); }
 
-}  // namespace open_spiel::file
+} // namespace open_spiel::file
