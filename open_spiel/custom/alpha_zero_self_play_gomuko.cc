@@ -88,9 +88,9 @@ int main(int argc, char **argv) {
 
   // Load Game
   open_spiel::GameParameters params;
-  params["rows"] = open_spiel::GameParameter(6);
-  params["cols"] = open_spiel::GameParameter(6);
-  params["winSize"] = open_spiel::GameParameter(4);
+  params["rows"] = open_spiel::GameParameter(12);
+  params["cols"] = open_spiel::GameParameter(12);
+  params["winSize"] = open_spiel::GameParameter(5);
   std::shared_ptr<const open_spiel::Game> game =
       open_spiel::LoadGame("gomuko", params);
 

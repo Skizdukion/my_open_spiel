@@ -19,7 +19,6 @@
 #include <vector>
 
 #include "algorithms/alpha_zero_torch/device_manager.h"
-#include "open_spiel/abseil-cpp/absl/flags/flag.h"
 #include "open_spiel/abseil-cpp/absl/flags/parse.h"
 #include "open_spiel/algorithms/alpha_zero_torch/alpha_zero.h"
 #include "open_spiel/algorithms/alpha_zero_torch/vpevaluator.h"
@@ -100,8 +99,8 @@ void PlayGame(const Game &game, std::shared_ptr<Bot> bot, int human_player) {
 int main(int argc, char **argv) {
 
   open_spiel::GameParameters params;
-  params["rows"] = open_spiel::GameParameter(16);
-  params["cols"] = open_spiel::GameParameter(16);
+  params["rows"] = open_spiel::GameParameter(12);
+  params["cols"] = open_spiel::GameParameter(12);
   params["winSize"] = open_spiel::GameParameter(5);
 
   open_spiel::Init("", &argc, &argv, true);
